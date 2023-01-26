@@ -58,7 +58,7 @@ points(covid_imp_8.1[outliers, c("confirmed_cases", "deaths")], pch="+", col=4, 
 
 #Most important variables - taking out county_name as randomForest will not work on factors with more than 53 levels
 temp.covid.data <- covid_imp_8 %>% dplyr::select(-county_name)
-set.seed(123)
+set.seed(240)
 regressor <- randomForest(confirmed_cases ~ . , data = temp.covid.data, importance=TRUE) 
 varImp(regressor) 
 
@@ -94,25 +94,23 @@ ggbiplot(covid.pca)
 
 
 #Summary statistics of most important variables
-imp.var.df <- subset(covid_imp_8, select = c(county_name, state, confirmed_cases, deaths, rent_over_50_percent, rent_40_to_50_percent,
-              rent_under_10_percent, vacant_housing_units, families_with_young_children, one_parent_families_with_young_children,
-              father_one_parent_families_with_young_children, father_in_labor_force_one_parent_families_with_young_children,
-              commute_25_29_mins, income_50000_59999, income_200000_or_more, housing_units_renter_occupied, male_under_5, male_5_to_9,
-              male_10_to_14, male_15_to_17, male_18_to_19, male_22_to_24, male_30_to_34, male_35_to_39, male_75_to_79, female_under_5,
-              female_5_to_9, female_10_to_14, female_15_to_17, female_20, female_21, female_35_to_39, female_75_to_79,
-              female_80_to_84, female_85_and_over, unemployed_pop, children, employed_construction, employed_retail_trade, 
-              high_school_including_ged, in_grades_1_to_4, in_grades_5_to_8, in_grades_9_to_12, in_school, male_45_64_grade_9_12,
-              male_45_64_high_school, occupation_natural_resources_construction_maintenance, occupation_sales_office, sales_office_employed,
-              some_college_and_associates_degree, high_school_diploma, less_one_year_college, one_year_more_college, commute_35_44_mins,
-              commuters_16_over, hispanic_any_race, county_fips_code, two_or_more_races_pop, two_parents_not_in_labor_force_families_with_young_children,
-              income_100000_124999, owner_occupied_housing_units_lower_value_quartile, owner_occupied_housing_units_median_value,
-              owner_occupied_housing_units_upper_value_quartile, dwellings_2_units, housing_built_2000_to_2004, armed_forces, white_male_55_64))
+imp.var.df <- subset(covid_imp_8, select = c(county_name, state, confirmed_cases, deaths, rent_35_to_40_percent, rent_25_to_30_percent, 
+              rent_10_to_15_percent, rent_under_10_percent, total_pop, male_pop, black_pop, families_with_young_children, 
+              father_one_parent_families_with_young_children, father_in_labor_force_one_parent_families_with_young_children, 
+              commute_25_29_mins, commute_45_59_mins, male_under_5, male_5_to_9, male_10_to_14, male_18_to_19, male_21, male_22_to_24, 
+              male_30_to_34, male_35_to_39, male_75_to_79, female_under_5, female_5_to_9, female_10_to_14, female_15_to_17, female_21, 
+              female_75_to_79, female_80_to_84, female_85_and_over, black_including_hispanic, commute_35_39_mins, children, 
+              employed_construction, employed_retail_trade, in_grades_1_to_4, in_grades_5_to_8, in_grades_9_to_12, in_school, 
+              male_45_64_less_than_9_grade, male_45_64_grade_9_12, male_45_64_high_school, occupation_natural_resources_construction_maintenance, 
+              occupation_sales_office, poverty, sales_office_employed, worked_at_home, less_one_year_college, one_year_more_college, 
+              hispanic_any_race, county_fips_code, amerindian_pop, owner_occupied_housing_units_lower_value_quartile, 
+              owner_occupied_housing_units_upper_value_quartile, dwellings_3_to_4_units, dwellings_10_to_19_units))
 
-avgs <- apply(imp.var.df[,3:67], 2, mean)
-ranges <- apply(imp.var.df[,3:67], 2, range)
-medians <- apply(imp.var.df[,3:67], 2, median)
-variances <- apply(imp.var.df[,3:67], 2, var)
-stdevs <- apply(imp.var.df[,3:67], 2, sd)
+avgs <- apply(imp.var.df[,3:59], 2, mean)
+ranges <- apply(imp.var.df[,3:59], 2, range)
+medians <- apply(imp.var.df[,3:59], 2, median)
+variances <- apply(imp.var.df[,3:59], 2, var)
+stdevs <- apply(imp.var.df[,3:59], 2, sd)
 
 #Writing function to find modes of every column
 mode <- function(x) {
@@ -120,7 +118,7 @@ mode <- function(x) {
   uniquex[which.max(tabulate(match(x, uniquex)))]
 }
 
-modes <- apply(imp.var.df[,3:67], 2, mode)
+modes <- apply(imp.var.df[,3:59], 2, mode)
 
 #Visualize most important variables
 #Look at correlation
@@ -247,5 +245,4 @@ ggplot(DFmale, mapping = aes(x = reorder(AgeGroup, -confirmed_cases), y = confir
 #Is social distancing done and is it working?
 #Can we identify regions that do particularly well?
 #Can we predict the development in a region given the data of other regions?
-
 
