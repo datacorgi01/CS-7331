@@ -46,7 +46,6 @@ covid_imp_8 <- kNN(covid_imp_7, variable = "renter_occupied_housing_units_paying
 #Remove rows with NA from mobrep dataset. KNN imputation won't work with such a large dataset b/c of memory issues
 mobrep1 <- mobrep[complete.cases(mobrep), ]
 
-
 #Check for duplicate rows - no dupes
 covid[duplicated(covid)]
 mobrep1[duplicated(mobrep1)]
@@ -97,6 +96,23 @@ points(kmeans.result1$centers1[,c("retail_and_recreation_percent_change_from_bas
 points(mobrep2[outliers1, c("retail_and_recreation_percent_change_from_baseline", "grocery_and_pharmacy_percent_change_from_baseline")], pch="+", col=4, cex=3)
 
 #Replicate above for tx dataset
+#Removing factor columnns
+tx1 <- tx[, -c(2,3,5)]
+
+set.seed(240) 
+kmeans.result2 <- kmeans(tx1, centers = 3)
+kmeans.result2
+
+centers2 <- kmeans.result2$centers[kmeans.result2$cluster, ] 
+distances2 <- sqrt(rowSums((tx1 - centers2)^2))
+outliers2 <- order(distances2, decreasing=T)[1:10]
+
+print(outliers2)
+print(tx1[outliers2,])
+
+plot(tx1[,c("confirmed_cases", "deaths")], pch=19, col=kmeans.result2$cluster, cex=1)
+points(kmeans.result2$centers[,c("confirmed_cases", "deaths")], col=1:3, pch=15, cex=2)
+points(tx1[outliers2, c("confirmed_cases", "deaths")], pch="+", col=4, cex=3)
 
 #Most important variables for covid data - taking out county_name as randomForest will not work on factors with more than 53 levels
 temp.covid.data <- covid_imp_8 %>% dplyr::select(-county_name)
@@ -187,7 +203,17 @@ ggplot(imp.var.df, mapping = aes(x = confirmed_cases, y = deaths, label = state)
   geom_text_repel(data = subset(imp.var.df, deaths > quantile(deaths, .95))) +
   ggtitle("Confirmed Cases vs Deaths with Total Population for Each State")
 
-#TX visuals - ADD IN HERE
+#TX visuals 
+#Dallas cases overtime
+tx$date_new <- as.Date(tx$date, format = "%Y-%m-%d")
+tx$cumulative.cases <- cumsum(tx$confirmed_cases)
+cases_Dallas <- tx %>% filter(county_name == "Dallas County" & state == "TX")
+cases_Austin <- tx %>% filter(county_name == "Travis County" & state == "TX")
+cases_Houston <- tx %>% filter(county_name == "Houston County" & state == "TX")
+cases3 <- rbind(cases_Austin, cases_Dallas, cases_Houston)
+
+ggplot(data = cases3, aes(x = date_new, y = cumulative.cases, group=county_name, color=county_name)) + geom_line() 
+
 
 #CA had highest cases - let's see what counties are bad and look at those policies
 cases_CA <- covid_imp_8 %>% filter(state == "CA")
@@ -266,6 +292,9 @@ ggplot(DFmale, mapping = aes(x = reorder(AgeGroup, -confirmed_cases), y = confir
 #Death rate in areas with lower income/more remote areas 
 
 #Mask mandates?
+
+#CDC - spread (# of cases over time) and deaths, social distancing measures, vaccines
+
 
 
 #What is the trend in different areas (states, counties) of the US?
