@@ -3,6 +3,7 @@ library(ggplot2)
 library(caret)
 library(randomForest)
 library(devtools)
+library(class)
 #install_github("vqv/ggbiplot")
 library(ggbiplot)
 #devtools::install_github("kassambara/ggcorrplot")
@@ -99,25 +100,6 @@ plot(mobrep2[,c("retail_and_recreation_percent_change_from_baseline", "grocery_a
 points(kmeans.result1$centers1[,c("retail_and_recreation_percent_change_from_baseline", "grocery_and_pharmacy_percent_change_from_baseline")], col=1:3, pch=15, cex=2)
 points(mobrep2[outliers1, c("retail_and_recreation_percent_change_from_baseline", "grocery_and_pharmacy_percent_change_from_baseline")], pch="+", col=4, cex=3)
 
-#Replicate above for tx dataset
-#Removing factor columnns
-tx1 <- tx[, -c(2,3,5)]
-
-set.seed(240) 
-kmeans.result2 <- kmeans(tx1, centers = 3)
-kmeans.result2
-
-centers2 <- kmeans.result2$centers[kmeans.result2$cluster, ] 
-distances2 <- sqrt(rowSums((tx1 - centers2)^2))
-outliers2 <- order(distances2, decreasing=T)[1:10]
-
-print(outliers2)
-print(tx1[outliers2,])
-
-plot(tx1[,c("confirmed_cases", "deaths")], pch=19, col=kmeans.result2$cluster, cex=1)
-points(kmeans.result2$centers[,c("confirmed_cases", "deaths")], col=1:3, pch=15, cex=2)
-points(tx1[outliers2, c("confirmed_cases", "deaths")], pch="+", col=4, cex=3)
-
 #Replicate above for ca dataset
 #Removing factor columnns
 ca1 <- ca[, -c(2,3,5)]
@@ -131,9 +113,10 @@ distances3 <- sqrt(rowSums((ca1 - centers3)^2))
 outliers3 <- order(distances3, decreasing=T)[1:10]
 
 print(outliers3)
-print(tx1[outliers3,])
+print(ca1[outliers3,])
 
-plot(ca1[,c("confirmed_cases", "deaths")], pch=19, col=kmeans.result3$cluster, cex=1)
+plot(ca1[,c("confirmed_cases", "deaths")], pch=19, col=kmeans.result3$cluster, cex=1, xlab = "Confirmed Cases", 
+     ylab = "Deaths", main = "Outliers in California Cases Dataset Found Through K-Means Clustering")
 points(kmeans.result3$centers[,c("confirmed_cases", "deaths")], col=1:3, pch=15, cex=2)
 points(ca1[outliers3, c("confirmed_cases", "deaths")], pch="+", col=4, cex=3)
 
@@ -167,13 +150,46 @@ ggplot(data_1c, aes(x=Var.Names, y=`%IncMSE`)) +
   ) + ggtitle("Most Important Variables (Ranked by Random Forest)")
 
 
-#Summary statistics of most important variables for covid data
+#Summary statistics of most important variables for covid data - removing occupation_sales_office as it's the same as sales_office_employed
 imp.var.df <- subset(covid_imp_8, select = c(county_name, state, confirmed_cases, deaths, families_with_young_children, 
               father_one_parent_families_with_young_children, male_under_5, male_5_to_9, male_10_to_14, male_15_to_17, male_30_to_34, 
               female_under_5, female_5_to_9, female_10_to_14, female_15_to_17, children, employed_construction, high_school_including_ged, 
               in_grades_1_to_4, in_grades_5_to_8, in_school, occupation_natural_resources_construction_maintenance, 
-              occupation_sales_office, sales_office_employed, one_year_more_college))
+              sales_office_employed, one_year_more_college, total_pop))
 
+#Normalize data for imp.var.df
+cases_select <- imp.var.df %>% filter(confirmed_cases > 100) %>% 
+  arrange(desc(confirmed_cases)) %>%    
+  dplyr::select(county_name, state, confirmed_cases, deaths, families_with_young_children, 
+                father_one_parent_families_with_young_children, male_under_5, male_5_to_9, male_10_to_14, male_15_to_17, male_30_to_34, 
+                female_under_5, female_5_to_9, female_10_to_14, female_15_to_17, children, employed_construction, high_school_including_ged, 
+                in_grades_1_to_4, in_grades_5_to_8, in_school, occupation_natural_resources_construction_maintenance, 
+                sales_office_employed, one_year_more_college, total_pop)
+cases_select <- cases_select %>% mutate(
+  cases_per_1000 = confirmed_cases/total_pop*1000, 
+  deaths_per_1000 = deaths/total_pop*1000, 
+  families_with_young_kids_per_1000 = families_with_young_children/total_pop*1000,
+  father_with_young_kids_per_1000 = father_one_parent_families_with_young_children/total_pop*1000,
+  male_under_5_per_1000 = male_under_5/total_pop*1000,
+  male_5_to_9_per_1000 = male_5_to_9/total_pop*1000,
+  male_10_to_14_per_1000 = male_10_to_14/total_pop*1000,
+  male_15_to_17_per_1000 = male_15_to_17/total_pop*1000,
+  male_30_to_34_per_1000 = male_30_to_34/total_pop*1000,
+  female_under_5_per_1000 = female_under_5/total_pop*1000,
+  female_10_to_14_per_1000 = female_10_to_14/total_pop*1000,
+  female_15_to_17_per_1000 = female_15_to_17/total_pop*1000,
+  children_per_1000 = children/total_pop*1000,
+  employed_construction_per_1000 = employed_construction/total_pop*1000,
+  high_school_including_ged_per_1000 = high_school_including_ged/total_pop*1000,
+  in_grades_1_to_4_per_1000 = in_grades_1_to_4/total_pop*1000,
+  in_grades_5_to_8_per_1000 = in_grades_5_to_8/total_pop*1000,
+  in_school_per_1000 = in_school/total_pop*1000,
+  occupation_natural_resources_construction_maintenance_per_1000 = occupation_natural_resources_construction_maintenance/total_pop*1000,
+  sales_office_employed_per_1000 = in_school/total_pop*1000,
+  one_year_more_college_per_1000 = one_year_more_college/total_pop*1000,
+  death_per_case = deaths/confirmed_cases)
+
+#Summary statistics for untransformed covid set
 avgs.covid <- apply(imp.var.df[,3:25], 2, mean)
 ranges.covid <- apply(imp.var.df[,3:25], 2, range)
 medians.covid <- apply(imp.var.df[,3:25], 2, median)
@@ -188,6 +204,10 @@ mode <- function(x) {
 
 modes.covid <- apply(imp.var.df[,3:25], 2, mode)
 
+#Mode for county_name & state
+which.max(table(imp.var.df$county_name))
+which.max(table(imp.var.df$state))
+
 #Summary statistics for mobrep data 
 avgs.mobrep <- apply(mobrep1[,8:13], 2, mean)
 ranges.mobrep <- apply(mobrep1[,8:13], 2, range)
@@ -196,13 +216,8 @@ variances.mobrep <- apply(mobrep1[,8:13], 2, var)
 stdevs.mobrep <- apply(mobrep1[,8:13], 2, sd)
 modes.mobrep <- apply(mobrep1[,8:13], 2, mode)
 
-#Summary statistics for tx data 
-avgs.tx <- apply(tx[,c(1,4,6,7)], 2, mean)
-ranges.tx <- apply(tx[,c(1,4,6,7)], 2, range)
-medians.tx <- apply(tx[,c(1,4,6,7)], 2, median)
-variances.tx <- apply(tx[,c(1,4,6,7)], 2, var)
-stdevs.tx <- apply(tx[,c(1,4,6,7)], 2, sd)
-modes.tx <- apply(tx[,c(1,4,6,7)], 2, mode)
+#Mode for categorical variables in mobrep1
+summary(mobrep1)
 
 #Summary statistics for ca data 
 avgs.ca <- apply(ca[,c(1,4,6,7)], 2, mean)
@@ -214,42 +229,61 @@ modes.ca <- apply(ca[,c(1,4,6,7)], 2, mode)
 
 #Visualize most important variables
 #Look at correlation - seems to be lots of multicollinearity?
-cor_imp <- cor(imp.var.df[,-c(1,2)])
-ggcorrplot(cor_imp, p.mat = cor_pmat(imp.var.df[,-c(1,2)]), insig = "blank", hc.order = TRUE) + 
-  ggtitle("Correlation Matrix for COVID-19 Plus Census Data")
+cor_imp <- cor(cases_select[,27:47])
+ggcorrplot(cor_imp, p.mat = cor_pmat(cases_select[,27:47]), insig = "blank", hc.order = TRUE) + 
+  ggtitle("Correlation Matrix for COVID-19 Plus Census Data") + theme(plot.title = element_text(size=22))
 
 #Look at correlation for mobrep
 cor_imp_mobrep <- cor(mobrep1[,8:13])
 ggcorrplot(cor_imp_mobrep, p.mat = cor_pmat(mobrep1[,8:13]), insig = "blank", hc.order = TRUE) +
-  ggtitle("Correlation Matrix for Global Mobility Report")
-
-#Look at correlation for tx
-cor_imp_tx <- cor(tx[,c(1,6,7)])
-ggcorrplot(cor_imp_tx, p.mat = cor_pmat(tx[,c(1,6,7)]), insig = "blank", hc.order = TRUE) +
-  ggtitle("Correlation Matrix for Texas Cases Data")
+  ggtitle("Correlation Matrix for Global Mobility Report") + theme(plot.title = element_text(size=22))
 
 #Look at correlation for ca
-cor_imp_ca <- cor(ca[,c(1,6,7)])
-ggcorrplot(cor_imp_ca, p.mat = cor_pmat(ca[,c(1,6,7)]), insig = "blank", hc.order = TRUE) +
-  ggtitle("Correlation Matrix for California Cases Data")
+cor_imp_ca <- cor(ca[,c(6,7)])
+ggcorrplot(cor_imp_ca, p.mat = cor_pmat(ca[,c(6,7)]), insig = "blank", hc.order = TRUE) +
+  ggtitle("Correlation Matrix for California Cases Data") + theme(plot.title = element_text(size=22))
 
-#Confirmed cases by state
-ggplot(data = aggregate(imp.var.df$confirmed_cases, list(imp.var.df$state), mean), aes(Group.1, x)) + geom_col() + 
+#Confirmed cases by state 
+ggplot(data = aggregate(cases_select$confirmed_cases, list(cases_select$state), mean), 
+       mapping = aes(reorder(Group.1, -x), x)) + geom_col() + 
   xlab("State") +  ylab("Confirmed Cases") + ggtitle("Confirmed COVID-19 Cases by State") + 
-  geom_bar(stat = "identity", fill = "orange")
+  geom_bar(stat = "identity", fill = "orange") + 
+  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
 #Deaths by state
-ggplot(data = aggregate(imp.var.df$deaths, list(imp.var.df$state), mean), aes(Group.1, x)) + geom_col() + 
+ggplot(data = aggregate(cases_select$deaths, list(cases_select$state), mean), 
+       mapping = aes(reorder(Group.1, -x), x)) + geom_col() + 
   xlab("State") +  ylab("Deaths") + ggtitle("COVID-19 Deaths by State") + 
-  geom_bar(stat = "identity", fill = "black")
+  geom_bar(stat = "identity", fill = "black") + 
+  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
-#Deaths and confirmed cases 
+#Deaths and confirmed cases by state
 ggplot(imp.var.df, mapping = aes(x = confirmed_cases, y = deaths, label = state)) + 
   geom_smooth(method = lm) +
   geom_point(mapping = aes(size = covid_imp_8$total_pop), color = "red") + 
   labs(size = "Total Population", x = "Confirmed Cases", y = "Deaths") +
   geom_text_repel(data = subset(imp.var.df, deaths > quantile(deaths, .95))) +
-  ggtitle("Confirmed Cases vs Deaths with Total Population for Each State") 
+  ggtitle("Confirmed Cases vs Deaths with Total Population for Each State") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14)) + 
+  scale_size_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) + 
+  scale_x_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) + 
+  scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE))
+
+#Deaths and confirmed cases by county
+ggplot(imp.var.df, mapping = aes(x = confirmed_cases, y = deaths, label = county_name)) + 
+  geom_smooth(method = lm) +
+  geom_point(mapping = aes(size = covid_imp_8$total_pop), color = "red") + 
+  labs(size = "Total Population", x = "Confirmed Cases", y = "Deaths") +
+  geom_text_repel(data = subset(imp.var.df, deaths > quantile(deaths, .95))) +
+  ggtitle("Confirmed Cases vs Deaths with Total Population for Each County") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14)) + 
+  scale_size_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) + 
+  scale_x_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) + 
+  scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE))
 
 #Confirmed cases for CA
 ggplot(cases_CA, mapping = aes(x = confirmed_cases, y = deaths, label = county_name)) + 
@@ -257,7 +291,12 @@ ggplot(cases_CA, mapping = aes(x = confirmed_cases, y = deaths, label = county_n
   geom_point(mapping = aes(size = cases_CA$total_pop), color = "red") + 
   labs(size = "Total Population", x = "Confirmed Cases", y = "Deaths") +
   geom_text_repel(data = subset(cases_CA, deaths > quantile(deaths, .95))) +
-  ggtitle("Confirmed Cases vs Deaths with Total Population for Each County in California")
+  ggtitle("Confirmed Cases vs Deaths with Total Population for Each County in California") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14)) + 
+  scale_size_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) + 
+  scale_x_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) + 
+  scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE))
 
 #CA had highest cases - let's see what counties are bad and look at those policies
 cases_CA <- covid_imp_8 %>% filter(state == "CA")
@@ -288,7 +327,9 @@ ggplot(counties_CA, aes(long, lat, label = county)) +
                     dplyr::summarize(long = mean(long), lat = mean(lat)) %>% dplyr::mutate(county = str_to_title(county))) +
   coord_quickmap() + 
   scale_fill_gradient(low="yellow", high="red") + labs(fill = "Cases Per 1000", x = "Longitude", y = "Latitude") +
-  labs(title = "COVID-19 Cases per 1000 People in California", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "COVID-19 Cases per 1000 People in California", subtitle = "Only counties reporting 100+ cases") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
 #Deaths
 ggplot(counties_CA, aes(long, lat, label = county)) + 
@@ -297,85 +338,117 @@ ggplot(counties_CA, aes(long, lat, label = county)) +
                     dplyr::summarize(long = mean(long), lat = mean(lat)) %>% dplyr::mutate(county = str_to_title(county))) +
   coord_quickmap() + 
   scale_fill_gradient(low="lightblue", high="blue") + labs(fill = "Cases Per 1000", x = "Longitude", y = "Latitude") +
-  labs(title = "COVID-19 Deaths per 1000 People in California", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "COVID-19 Deaths per 1000 People in California", subtitle = "Only counties reporting 100+ cases") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
 #Look at counties in CA - compare this to the graph we saw above which was scaled. Lassen isn't even on here
 CA.dat <- subset(imp.var.df, imp.var.df$state == "CA")
 CA.dat2 <- subset(CA.dat, CA.dat$confirmed_cases >= 100000)
 ggplot(data = aggregate(CA.dat2$confirmed_cases, list(CA.dat2$county_name), mean), aes(Group.1, x)) + geom_col() + 
-  xlab("County") +  ylab("Confirmed Cases") + ggtitle("Highest Confirmed COVID-19 Cases by California County") + 
-  geom_bar(stat = "identity", fill = "pink")
+  xlab("County") +  ylab("Confirmed Cases") + ggtitle("Highest Confirmed COVID-19 Cases by California County (Not Normalized)") + 
+  geom_bar(stat = "identity", fill = "pink") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))   + 
+  scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE))
 
-#Compare Dallas to Lassen & LA cumulative cases over time
-#Dallas cases overtime
-tx$date_new <- as.Date(tx$date, format = "%Y-%m-%d")
-tx$cumulative.cases <- cumsum(tx$confirmed_cases)
-cases_Dallas <- tx %>% filter(county_name == "Dallas County")
-
-ggplot(data = cases_Dallas, aes(x = date_new, y = cumulative.cases)) + geom_line() + geom_smooth() + 
-  ggtitle("Dallas COVID-19 Cases Over Time") + labs(x = "Date", y = "Cumulative Cases") + scale_y_continuous(label=comma)
-
+#Compare Lassen & LA to Mariposa cumulative cases over time
 #Lassen cases overtime
 ca$date_new <- as.Date(ca$date, format = "%Y-%m-%d")
 ca$cumulative.cases <- cumsum(as.numeric(ca$confirmed_cases))
 cases_lassen <- ca %>% filter(county_name == "Lassen County ")
 
-ggplot(data = cases_lassen, aes(x = date_new, y = cumulative.cases)) + geom_line() + geom_smooth() + 
-  ggtitle("Lassen COVID-19 Cases Over Time")  + labs(x = "Date", y = "Cumulative Cases") + scale_y_continuous(label=comma)
+ggplot(data = cases_lassen, aes(x = date_new, y = confirmed_cases)) + geom_line() + geom_smooth() + 
+  ggtitle("Lassen COVID-19 Cases Over Time")  + labs(x = "Date", y = "COVID-19 Cases") + scale_y_continuous(label=comma) + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
+
+#Mariposa cases overtime
+cases_mariposa <- ca %>% filter(county_name == "Mariposa County ")
+
+ggplot(data = cases_mariposa, aes(x = date_new, y = confirmed_cases)) + geom_line() + geom_smooth() + 
+  ggtitle("Mariposa COVID-19 Cases Over Time")  + labs(x = "Date", y = "COVID-19 Cases") + scale_y_continuous(label=comma) + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
 #LA cases overtime
 ca$date_new <- as.Date(ca$date, format = "%Y-%m-%d")
 ca$cumulative.cases <- cumsum(as.numeric(ca$confirmed_cases))
 cases_LA <- ca %>% filter(county_name == "Los Angeles County ")
 
-ggplot(data = cases_LA, aes(x = date_new, y = cumulative.cases)) + geom_line() + geom_smooth() + 
-  ggtitle("LA COVID-19 Cases Over Time") + labs(x = "Date", y = "Cumulative Cases") + scale_y_continuous(label=comma)
+ggplot(data = cases_LA, aes(x = date_new, y = confirmed_cases)) + geom_line() + geom_smooth() + 
+  ggtitle("LA COVID-19 Cases Over Time") + labs(x = "Date", y = "COVID-19 Cases") + scale_y_continuous(label=comma) + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
-#Look at mobility report for LA
+#Children under 5 contrasted with covid cases per 1000 people
+cases_select$kids_under_5 <- cases_select$male_under_5_per_1000 + cases_select$female_under_5_per_1000
+
+ggplot(cases_select, aes(x = cases_per_1000, y = kids_under_5)) + geom_point() + geom_smooth(method = "lm", col = "deeppink") +
+  labs(x = "Cases Per 1000 People", y = "Kids Under 5 Per 1000 People", title = "COVID-19 Cases VS. Kids Under 5 Per 1000 People") +
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
+
+#Families with young children cases per 1000 people
+ggplot(cases_select, aes(x = cases_per_1000, y = families_with_young_kids_per_1000)) + geom_point() + geom_smooth(method = "lm", col = "deeppink") +
+  labs(x = "Cases Per 1000 People", y = "Families with Young Kids Per 1000 People", title = "COVID-19 Cases VS. Families with Young Kids Per 1000 People") +
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
+
+#Look at mobility report for LA and Humboldt - no data on Mariposa, Plumas, or Lassen
 mobility_LA <- mobrep1 %>% filter(sub_region_1 == "California" & sub_region_2 == "Los Angeles County")
 mobility_LA$date_new <- as.Date(mobility_LA$date, format = "%Y-%m-%d")
 dim(mobility_LA)
 
-ggplot(mobility_LA, mapping = aes(x = date_new, y = retail_and_recreation_percent_change_from_baseline)) + geom_line() + 
-  geom_smooth() + ggtitle("LA Percent Change in Retail and Recreation Activities") + labs(x = "Date", y = "% Change from Baseline")
+mobility_hum <- mobrep1 %>% filter(sub_region_1 == "California" & sub_region_2 == "Humboldt County")
+mobility_hum$date_new <- as.Date(mobility_hum$date, format = "%Y-%m-%d")
+dim(mobility_hum)
 
-ggplot(mobility_LA, mapping = aes(x = date_new, y = grocery_and_pharmacy_percent_change_from_baseline)) + geom_line() + 
-  geom_smooth() + ggtitle("LA Percent Change in Grocery and Pharmacy") + labs(x = "Date", y = "% Change from Baseline")
+mobility_2_count <- rbind(mobility_hum, mobility_LA)
 
-ggplot(mobility_LA, mapping = aes(x = date_new, y = parks_percent_change_from_baseline)) + geom_line() + 
-  geom_smooth() + ggtitle("LA Percent Change in Parks") + labs(x = "Date", y = "% Change from Baseline")
+ggplot(mobility_2_count, mapping = aes(x = date_new, y = residential_percent_change_from_baseline, col = sub_region_2)) + geom_line() + 
+  geom_smooth() + ggtitle("LA vs. Humboldt Percent Change in Residential") + labs(x = "Date", y = "% Change from Baseline", col = "County") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
-ggplot(mobility_LA, mapping = aes(x = date_new, y = workplaces_percent_change_from_baseline)) + geom_line() + 
-  geom_smooth() + ggtitle("LA Percent Change in Workplaces") + labs(x = "Date", y = "% Change from Baseline")
+ggplot(mobility_2_count, mapping = aes(x = date_new, y = grocery_and_pharmacy_percent_change_from_baseline, col = sub_region_2)) + geom_line() + 
+  geom_smooth() + ggtitle("LA vs. Humboldt Percent Change in Grocery and Pharmacy") + labs(x = "Date", y = "% Change from Baseline", col = "County") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
-ggplot(mobility_LA, mapping = aes(x = date_new, y = residential_percent_change_from_baseline)) + geom_line() + 
-  geom_smooth() + ggtitle("LA Percent Change in Residential") + labs(x = "Date", y = "% Change from Baseline")
+ggplot(mobility_2_count, mapping = aes(x = date_new, y = parks_percent_change_from_baseline, col = sub_region_2)) + geom_line() + 
+  geom_smooth() + ggtitle("LA vs. Humboldt Percent Change in Parks") + labs(x = "Date", y = "% Change from Baseline", col = "County") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
-#Look at mobility report for Dallas
-mobility_Dallas <- mobrep1 %>% filter(sub_region_1 == "Texas" & sub_region_2 == "Dallas County")
-mobility_Dallas$date_new <- as.Date(mobility_Dallas$date, format = "%Y-%m-%d")
-dim(mobility_Dallas)
+ggplot(mobility_2_count, mapping = aes(x = date_new, y = workplaces_percent_change_from_baseline, col = sub_region_2)) + geom_line() + 
+  geom_smooth() + ggtitle("LA vs. Humboldt Percent Change in Workplaces") + labs(x = "Date", y = "% Change from Baseline", col = "County") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
-ggplot(mobility_Dallas, mapping = aes(x = date_new, y = retail_and_recreation_percent_change_from_baseline)) + geom_line() + geom_smooth(col = "red")
-
-ggplot(mobility_Dallas, mapping = aes(x = date_new, y = grocery_and_pharmacy_percent_change_from_baseline)) + geom_line() + geom_smooth(col = "red")
-
-ggplot(mobility_Dallas, mapping = aes(x = date_new, y = parks_percent_change_from_baseline)) + geom_line() + geom_smooth(col = "red")
-
-ggplot(mobility_Dallas, mapping = aes(x = date_new, y = workplaces_percent_change_from_baseline)) + geom_line() + geom_smooth(col = "red")
-
-ggplot(mobility_Dallas, mapping = aes(x = date_new, y = residential_percent_change_from_baseline)) + geom_line() + geom_smooth(col = "red")
+ggplot(mobility_2_count, mapping = aes(x = date_new, y = transit_stations_percent_change_from_baseline, col = sub_region_2)) + geom_line() + 
+  geom_smooth() + ggtitle("LA vs. Humboldt Percent Change in Transit") + labs(x = "Date", y = "% Change from Baseline", col = "County") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
 #Data Preparation 
 #Create dataset of 20 features with California counties as observations
-cases_CA1 <- covid_imp_8 %>% filter(state == "CA")  %>% dplyr::rename(c(county = county_name))
+ca_vaccine <- read.csv("/Users/allisonking/Downloads/covid19vaccinesbycounty.csv", stringsAsFactors = T)
+
+cases_CA1 <- covid_imp_8 %>% dplyr::filter(state == "CA")  %>% dplyr::rename(c(county = county_name))
 
 cases_CA2 <- cases_CA1 %>% dplyr::select(county, confirmed_cases, deaths, total_pop, median_income)
 
-mobrep_CA <- mobrep1 %>% filter(sub_region_1 == "California") %>% dplyr::rename(c(county = sub_region_2))
+mobrep_CA <- mobrep1 %>% dplyr::filter(sub_region_1 == "California") %>% dplyr::rename(c(county = sub_region_2))
 
 newtable_CA <- mobrep_CA %>% left_join(cases_CA2 %>% 
-                                           dplyr::select(c(county, confirmed_cases, deaths, total_pop, poverty, children)))
+                                           dplyr::select(c(county, confirmed_cases, deaths, total_pop, median_income)))
+
+new_table_CA2 <- newtable_CA %>% dplyr::select(-c(country_region_code, country_region, sub_region_1, metro_area, iso_3166_2_code))
+
+ca_vaccine$county <- tolower(ca_vaccine$county)
+ca_vaccine$county <- paste(ca_vaccine$county, "county", sep=" ")
+
 
 
 
