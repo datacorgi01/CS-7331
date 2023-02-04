@@ -409,27 +409,27 @@ mobility_2_count <- rbind(mobility_hum, mobility_LA)
 ggplot(mobility_2_count, mapping = aes(x = date_new, y = residential_percent_change_from_baseline, col = sub_region_2)) + geom_line() + 
   geom_smooth() + ggtitle("LA vs. Humboldt Percent Change in Residential") + labs(x = "Date", y = "% Change from Baseline", col = "County") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
-        plot.title = element_text(size=22))
+        plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14))
 
 ggplot(mobility_2_count, mapping = aes(x = date_new, y = grocery_and_pharmacy_percent_change_from_baseline, col = sub_region_2)) + geom_line() + 
   geom_smooth() + ggtitle("LA vs. Humboldt Percent Change in Grocery and Pharmacy") + labs(x = "Date", y = "% Change from Baseline", col = "County") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
-        plot.title = element_text(size=22))
+        plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14))
 
 ggplot(mobility_2_count, mapping = aes(x = date_new, y = parks_percent_change_from_baseline, col = sub_region_2)) + geom_line() + 
   geom_smooth() + ggtitle("LA vs. Humboldt Percent Change in Parks") + labs(x = "Date", y = "% Change from Baseline", col = "County") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
-        plot.title = element_text(size=22))
+        plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14))
 
 ggplot(mobility_2_count, mapping = aes(x = date_new, y = workplaces_percent_change_from_baseline, col = sub_region_2)) + geom_line() + 
   geom_smooth() + ggtitle("LA vs. Humboldt Percent Change in Workplaces") + labs(x = "Date", y = "% Change from Baseline", col = "County") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
-        plot.title = element_text(size=22))
+        plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14))
 
 ggplot(mobility_2_count, mapping = aes(x = date_new, y = transit_stations_percent_change_from_baseline, col = sub_region_2)) + geom_line() + 
   geom_smooth() + ggtitle("LA vs. Humboldt Percent Change in Transit") + labs(x = "Date", y = "% Change from Baseline", col = "County") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
-        plot.title = element_text(size=22))
+        plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14))
 
 #Data Preparation 
 #Create dataset of 20 features with California counties as observations
@@ -437,18 +437,37 @@ ca_vaccine <- read.csv("/Users/allisonking/Downloads/covid19vaccinesbycounty.csv
 
 cases_CA1 <- covid_imp_8 %>% dplyr::filter(state == "CA")  %>% dplyr::rename(c(county = county_name))
 
-cases_CA2 <- cases_CA1 %>% dplyr::select(county, confirmed_cases, deaths, total_pop, median_income)
+cases_CA2 <- cases_CA1 %>% dplyr::select(county, confirmed_cases, deaths, total_pop, median_income,
+                                         median_age, black_pop, white_pop, asian_pop, employed_pop, 
+                                         unemployed_pop, bachelors_degree_or_higher_25_64, children, in_school, 
+                                         pop_determined_poverty_status)
 
 mobrep_CA <- mobrep1 %>% dplyr::filter(sub_region_1 == "California") %>% dplyr::rename(c(county = sub_region_2))
 
 newtable_CA <- mobrep_CA %>% left_join(cases_CA2 %>% 
-                                           dplyr::select(c(county, confirmed_cases, deaths, total_pop, median_income)))
+                                           dplyr::select(c(county, confirmed_cases, deaths, total_pop, median_income,
+                                                           median_age, black_pop, white_pop, asian_pop, employed_pop, 
+                                                           unemployed_pop, bachelors_degree_or_higher_25_64, children, in_school, 
+                                                           pop_determined_poverty_status)))
 
 new_table_CA2 <- newtable_CA %>% dplyr::select(-c(country_region_code, country_region, sub_region_1, metro_area, iso_3166_2_code))
 
-ca_vaccine$county <- tolower(ca_vaccine$county)
-ca_vaccine$county <- paste(ca_vaccine$county, "county", sep=" ")
+ca_vaccine$county <- paste(ca_vaccine$county, "County", sep=" ")
 
+newtable_CA3 <- new_table_CA2 %>% left_join(ca_vaccine %>% 
+                                         dplyr::select(c(county, total_doses, fully_vaccinated, partially_vaccinated, 
+                                                         administered_date, at_least_one_dose)))
 
+#Final table for part 3 
+#from covid - total_pop, median_age, black_pop, white_pop, asian_pop, median_income, employed_pop,
+#unemployed_pop, bachelors_degree_or_higher, children, in_school, pop_determined_poverty_status, confirmed_cases, deaths, county,
+#from vaccine - total_doses, fully_vaccinated, partially_vaccinated, at_least_one_dose
+#from mobrep - residential_percent_change_from_baseline
+final_CA_table <- newtable_CA3 %>% dplyr::select(county, confirmed_cases, deaths, total_pop, median_income,
+                                                 median_age, black_pop, white_pop, asian_pop, employed_pop, 
+                                                 unemployed_pop, bachelors_degree_or_higher_25_64, children, in_school, 
+                                                 pop_determined_poverty_status, administered_date, total_doses, fully_vaccinated, 
+                                                 partially_vaccinated, at_least_one_dose, residential_percent_change_from_baseline)
 
+final_CA_table <- final_CA_table[!(final_CA_table$county == "" | is.na(final_CA_table$county)), ]
 
