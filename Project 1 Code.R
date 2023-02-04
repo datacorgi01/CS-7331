@@ -165,6 +165,7 @@ cases_select <- imp.var.df %>% filter(confirmed_cases > 100) %>%
                 female_under_5, female_5_to_9, female_10_to_14, female_15_to_17, children, employed_construction, high_school_including_ged, 
                 in_grades_1_to_4, in_grades_5_to_8, in_school, occupation_natural_resources_construction_maintenance, 
                 sales_office_employed, one_year_more_college, total_pop)
+
 cases_select <- cases_select %>% mutate(
   cases_per_1000 = confirmed_cases/total_pop*1000, 
   deaths_per_1000 = deaths/total_pop*1000, 
@@ -185,7 +186,7 @@ cases_select <- cases_select %>% mutate(
   in_grades_5_to_8_per_1000 = in_grades_5_to_8/total_pop*1000,
   in_school_per_1000 = in_school/total_pop*1000,
   occupation_natural_resources_construction_maintenance_per_1000 = occupation_natural_resources_construction_maintenance/total_pop*1000,
-  sales_office_employed_per_1000 = in_school/total_pop*1000,
+  sales_office_employed_per_1000 = sales_office_employed/total_pop*1000,
   one_year_more_college_per_1000 = one_year_more_college/total_pop*1000,
   death_per_case = deaths/confirmed_cases)
 
@@ -372,8 +373,6 @@ ggplot(data = cases_mariposa, aes(x = date_new, y = confirmed_cases)) + geom_lin
         plot.title = element_text(size=22))
 
 #LA cases overtime
-ca$date_new <- as.Date(ca$date, format = "%Y-%m-%d")
-ca$cumulative.cases <- cumsum(as.numeric(ca$confirmed_cases))
 cases_LA <- ca %>% filter(county_name == "Los Angeles County ")
 
 ggplot(data = cases_LA, aes(x = date_new, y = confirmed_cases)) + geom_line() + geom_smooth() + 
@@ -470,13 +469,47 @@ newtable_CA3 <- newtable_CA %>% left_join(ca_vaccine2)
 #from covid - total_pop, median_age, black_pop, white_pop, asian_pop, median_income, employed_pop,
 #unemployed_pop, bachelors_degree_or_higher, children, in_school, pop_determined_poverty_status, confirmed_cases, deaths, county,
 #from vaccine - total_doses, fully_vaccinated, partially_vaccinated, at_least_one_dose
-#from mobrep - residential_percent_change_from_baseline
 final_CA_table <- newtable_CA3 %>% dplyr::select(county, date, confirmed_cases, deaths, total_pop, median_income,
                                                  median_age, black_pop, white_pop, asian_pop, employed_pop, 
                                                  unemployed_pop, bachelors_degree_or_higher_25_64, children, in_school, 
                                                  pop_determined_poverty_status, total_doses, fully_vaccinated, 
                                                  partially_vaccinated, at_least_one_dose)
 
+#Normalize data for final_CA_table
+ca4 <- final_CA_table %>% filter(confirmed_cases > 100) %>% 
+  arrange(desc(confirmed_cases))
 
+ca4 <- ca4 %>% mutate(
+  cases_per_1000 = confirmed_cases/total_pop*1000, 
+  deaths_per_1000 = deaths/total_pop*1000, 
+  bachelors_degree_or_higher_25_64_per_1000 = bachelors_degree_or_higher_25_64/total_pop*1000, 
+  children_per_1000 = children/total_pop*1000, 
+  in_school_per_1000 = in_school/total_pop*1000,
+  fully_vaccinated_per_1000 = fully_vaccinated/total_pop*1000, 
+  partially_vaccinated_per_1000 = partially_vaccinated/total_pop*1000,
+  asian_pop_per_1000 = asian_pop/total_pop*1000,
+  white_pop_per_1000 = white_pop/total_pop*1000,
+  black_pop_per_1000 = black_pop/total_pop*1000,
+  employed_pop_per_1000 = employed_pop/total_pop*1000,
+  unemployed_pop_per_1000 = unemployed_pop/total_pop*1000,
+  poverty_per_1000 = pop_determined_poverty_status/total_pop*1000,
+  total_doses_per_1000 = total_doses/total_pop*1000,
+  death_per_case = deaths/confirmed_cases)
+
+#Remove rows with NA from ca4 dataset
+ca5 <- ca4[complete.cases(ca4), ]
+
+#Correlation matrix
+cor_imp_ca4 <- cor(ca5[,c(5,6,7,21:35)])
+ggcorrplot(cor_imp_ca4, p.mat = cor_pmat(ca5[,c(5,6,7,21:35)]), insig = "blank", hc.order = TRUE) +
+  ggtitle("Correlation Matrix for New Table") + theme(plot.title = element_text(size=22))
+
+ca5$date_new <- as.Date(ca5$date, format = "%Y-%m-%d")
+
+#NEED TO FIX THIS VISUAL
+ggplot() + geom_line(ca5, mapping = aes(x = date_new, y = fully_vaccinated_per_1000)) + 
+  ggtitle("Vaccinations Per 1000 People in California Over Time") + labs(x = "Date", y = "Vaccinations") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14))
 
 
