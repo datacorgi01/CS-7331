@@ -504,12 +504,82 @@ cor_imp_ca4 <- cor(ca5[,c(5,6,7,21:35)])
 ggcorrplot(cor_imp_ca4, p.mat = cor_pmat(ca5[,c(5,6,7,21:35)]), insig = "blank", hc.order = TRUE) +
   ggtitle("Correlation Matrix for New Table") + theme(plot.title = element_text(size=22))
 
-ca5$date_new <- as.Date(ca5$date, format = "%Y-%m-%d")
+#Vaccines vs cases
+ca_vaccine$date_new <- as.Date(ca_vaccine$administered_date, format = "%m/%d/%y")
+Imperial <- ca_vaccine %>% dplyr::filter(county == "Imperial County")
 
-#NEED TO FIX THIS VISUAL
-ggplot() + geom_line(ca5, mapping = aes(x = date_new, y = fully_vaccinated_per_1000)) + 
-  ggtitle("Vaccinations Per 1000 People in California Over Time") + labs(x = "Date", y = "Vaccinations") + 
-  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
-        plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14))
+ggplot(Imperial, aes(x = date_new, y = fully_vaccinated)) + geom_line() + 
+   ggtitle("Imperial County Vaccinations Over Time") + theme_bw() + 
+  xlab("Date") +  ylab("Number of Full Vaccinations") + 
+  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
+Imperial_ca <- ca5 %>% dplyr::filter(county == "Imperial County")
+
+ggplot(Imperial_ca, aes(x = date_new, y = confirmed_cases)) + geom_line() + 
+  ggtitle("Imperial County COVID-19 Cases Over Time") + theme_bw() + 
+  xlab("Date") +  ylab("Number of COVID-19 Cases") + 
+  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
+
+#Humboldt
+hum <- ca_vaccine %>% dplyr::filter(county == "Humboldt County")
+
+ggplot(hum, aes(x = date_new, y = fully_vaccinated)) + geom_line() + 
+  ggtitle("Humboldt County Vaccinations Over Time") + theme_bw() + 
+  xlab("Date") +  ylab("Number of Full Vaccinations") + 
+  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
+
+hum_ca <- ca5 %>% dplyr::filter(county == "Humboldt County")
+
+ggplot(hum_ca, aes(x = date_new, y = confirmed_cases)) + geom_line() + 
+  ggtitle("Humboldt County COVID-19 Cases Over Time") + theme_bw() + 
+  xlab("Date") +  ylab("Number of COVID-19 Cases") + 
+  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
+
+
+#Median age vs cases_per_1000 & vaccinations
+ca5$age_bin <- as.factor(ifelse(ca5$median_age >= 30.00 & ca5$median_age <= 35.99, "30-35", 
+                         ifelse(ca5$median_age >= 36.00 & ca5$median_age <= 40.99, "36-40",
+                         ifelse(ca5$median_age >= 41.00 & ca5$median_age <= 45.99, "41-45", 
+                         ifelse(ca5$median_age >= 46.00 & ca5$median_age <= 50.99, "46-50", 
+                         ifelse(ca5$median_age >= 51.00 & ca5$median_age <= 55.99, "51-55", "Other"))))))
+
+ggplot(data = aggregate(ca5$cases_per_1000, list(ca5$age_bin), mean), 
+       mapping = aes(reorder(Group.1, -x), x)) + geom_col() + 
+  xlab("Age Group") +  ylab("Average Cases Per 1000  Across Counties") + ggtitle("Average COVID-19 Cases Per 1000 People by Age Group") + 
+  geom_bar(stat = "identity", fill = "purple") + 
+  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
+
+ggplot(data = aggregate(ca5$fully_vaccinated_per_1000, list(ca5$age_bin), mean), 
+       mapping = aes(reorder(Group.1, -x), x)) + geom_col() + 
+  xlab("Age Group") +  ylab("Average Vaccinations Per 1000 Across Counties") + ggtitle("Average Full Vaccinations Per 1000 People by Age Group") + 
+  geom_bar(stat = "identity", fill = "blue") + 
+  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
+
+#Median income vs cases_per_1000
+ca5$inc_bin <- as.factor(ifelse(ca5$median_income >= 0 & ca5$median_income <= 50000.01, "$0-$50k", 
+                         ifelse(ca5$median_income >= 50000.02 & ca5$median_income <= 70000.01, "$50k-$70k",
+                         ifelse(ca5$median_income >= 70000.02 & ca5$median_income <= 100000.01, "$70k-$100k", 
+                         ifelse(ca5$median_income >= 100000.02, "$100k+", "Other")))))
+
+ggplot(data = aggregate(ca5$cases_per_1000, list(ca5$inc_bin), mean), 
+       mapping = aes(reorder(Group.1, -x), x)) + geom_col() + 
+  xlab("Income Group") +  ylab("Average Cases Per 1000 Across Counties") + 
+  ggtitle("Average COVID-19 Cases Per 1000 People by Income Group") + 
+  geom_bar(stat = "identity", fill = "deeppink") + 
+  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
+
+ggplot(data = aggregate(ca5$fully_vaccinated_per_1000, list(ca5$inc_bin), mean), 
+       mapping = aes(reorder(Group.1, -x), x)) + geom_col() + 
+  xlab("Age Group") +  ylab("Average Vaccinations Per 1000 Across Counties") + 
+  ggtitle("Average Full Vaccinations Per 1000 People by Income Group") + 
+  geom_bar(stat = "identity", fill = "gold") + 
+  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
 
