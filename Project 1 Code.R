@@ -263,12 +263,12 @@ ggplot(data = aggregate(cases_select$deaths, list(cases_select$state), mean),
         plot.title = element_text(size=22))
 
 #Deaths and confirmed cases by state
-ggplot(imp.var.df, mapping = aes(x = confirmed_cases, y = deaths, label = state)) + 
+ggplot(cases_select, mapping = aes(x = cases_per_1000, y = deaths_per_1000, label = state)) + 
   geom_smooth(method = lm) +
-  geom_point(mapping = aes(size = covid_imp_8$total_pop), color = "red") + 
+  geom_point(mapping = aes(size = cases_select$total_pop), color = "red") + 
   labs(size = "Total Population", x = "Confirmed Cases", y = "Deaths") +
-  geom_text_repel(data = subset(imp.var.df, deaths > quantile(deaths, .95))) +
-  ggtitle("Confirmed Cases vs Deaths with Total Population for Each State") + 
+  geom_text_repel(data = subset(cases_select, deaths_per_1000 > quantile(deaths_per_1000, .95))) +
+  ggtitle("Confirmed Cases vs Deaths Per 1000 with Total Population for Each State") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
         plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14)) + 
   scale_size_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) + 
@@ -276,12 +276,12 @@ ggplot(imp.var.df, mapping = aes(x = confirmed_cases, y = deaths, label = state)
   scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE))
 
 #Deaths and confirmed cases by county
-ggplot(imp.var.df, mapping = aes(x = confirmed_cases, y = deaths, label = county_name)) + 
+ggplot(cases_select, mapping = aes(x = cases_per_1000, y = deaths_per_1000, label = county_name)) + 
   geom_smooth(method = lm) +
-  geom_point(mapping = aes(size = covid_imp_8$total_pop), color = "red") + 
+  geom_point(mapping = aes(size = cases_select$total_pop), color = "red") + 
   labs(size = "Total Population", x = "Confirmed Cases", y = "Deaths") +
-  geom_text_repel(data = subset(imp.var.df, deaths > quantile(deaths, .95))) +
-  ggtitle("Confirmed Cases vs Deaths with Total Population for Each County") + 
+  geom_text_repel(data = subset(cases_select, deaths_per_1000 > quantile(deaths_per_1000, .95))) +
+  ggtitle("Confirmed Cases vs Deaths Per 1000 with Total Population for Each County") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
         plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14)) + 
   scale_size_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) + 
@@ -289,11 +289,13 @@ ggplot(imp.var.df, mapping = aes(x = confirmed_cases, y = deaths, label = county
   scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE))
 
 #Confirmed cases for CA
-ggplot(cases_CA, mapping = aes(x = confirmed_cases, y = deaths, label = county_name)) + 
+ca.first <- subset(cases_select, state == "CA")
+
+ggplot(ca.first, mapping = aes(x = cases_per_1000, y = deaths_per_1000, label = county_name)) + 
   geom_smooth(method = lm) +
-  geom_point(mapping = aes(size = cases_CA$total_pop), color = "red") + 
+  geom_point(mapping = aes(size = ca.first$total_pop), color = "red") + 
   labs(size = "Total Population", x = "Confirmed Cases", y = "Deaths") +
-  geom_text_repel(data = subset(cases_CA, deaths > quantile(deaths, .95))) +
+  geom_text_repel(data = subset(ca.first, deaths_per_1000 > quantile(deaths_per_1000, .95))) +
   ggtitle("Confirmed Cases vs Deaths with Total Population for Each County in California") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
         plot.title = element_text(size=22), legend.text=element_text(size=13), legend.title = element_text(size=14)) + 
@@ -580,7 +582,7 @@ ggplot(data = aggregate(ca5$cases_per_1000, list(ca5$inc_bin), mean),
 
 ggplot(data = aggregate(ca5$fully_vaccinated_per_1000, list(ca5$inc_bin), mean), 
        mapping = aes(reorder(Group.1, -x), x)) + geom_col() + 
-  xlab("Age Group") +  ylab("Average Vaccinations Per 1000 Across Counties") + 
+  xlab("Income Group") +  ylab("Average Vaccinations Per 1000 Across Counties") + 
   ggtitle("Average Full Vaccinations Per 1000 People by Income Group") + 
   geom_bar(stat = "identity", fill = "gold") + 
   theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=22), 
