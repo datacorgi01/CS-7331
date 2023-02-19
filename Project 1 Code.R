@@ -308,11 +308,12 @@ cases_CA <- covid_imp_8 %>% filter(state == "CA")
 
 cases_CA_select <- cases_CA %>% filter(confirmed_cases > 100) %>% 
   arrange(desc(confirmed_cases)) %>%    
-  dplyr::select(county_name, confirmed_cases, deaths, total_pop, median_income)
+  dplyr::select(county_name, confirmed_cases, deaths, total_pop, median_income, families_with_young_children)
 
 cases_CA_select <- cases_CA_select %>% mutate(
   cases_per_1000 = confirmed_cases/total_pop*1000, 
   deaths_per_1000 = deaths/total_pop*1000, 
+  families_w_kids_per_1000 = families_with_young_children/total_pop*1000,
   death_per_case = deaths/confirmed_cases)
 
 counties <- as_tibble(map_data("county"))
@@ -323,7 +324,44 @@ cases_CA <- cases_CA_select %>% mutate(county = county_name %>% str_to_lower() %
                                          str_replace('\\s+county\\s*$', ''))
 
 counties_CA <- counties_CA %>% left_join(cases_CA %>% 
-                                           dplyr::select(c(county, cases_per_1000, deaths_per_1000, death_per_case)))
+                                           dplyr::select(c(county, cases_per_1000, deaths_per_1000, death_per_case, 
+                                                           families_w_kids_per_1000)))
+
+#K-means clustering for normalized CA dataset
+cali1 <- ca %>% dplyr::rename(c(county = county_name)) %>% dplyr::select(county, date, confirmed_cases, deaths)
+
+cali1$county <- as.factor(str_trim(cali1$county))
+
+cases_CA20 <- cases_CA %>% dplyr::rename(c(county = county_name))
+
+ca19 <- cali1 %>% left_join(cases_CA20 %>% 
+                                    dplyr::select(c(county, total_pop)))
+
+ca20 <- ca19 %>% mutate(
+  cases_per_1000 = confirmed_cases/total_pop*1000, 
+  deaths_per_1000 = deaths/total_pop*1000, 
+  death_per_case = deaths/confirmed_cases)
+
+#Remove rows with NA from ca20 dataset
+ca20 <- ca20[complete.cases(ca20), ]
+
+ca10 <- ca20[, c(3,4,5,6,7,8)]
+
+set.seed(240) 
+kmeans.result4 <- kmeans(ca10, centers = 3)
+kmeans.result4
+
+centers4 <- kmeans.result4$centers[kmeans.result4$cluster, ] 
+distances4 <- sqrt(rowSums((ca10 - centers4)^2))
+outliers4 <- order(distances4, decreasing=T)[1:10]
+
+print(outliers4)
+print(ca10[outliers4,])
+
+plot(ca10[,c("cases_per_1000", "deaths_per_1000")], pch=19, col=kmeans.result4$cluster, cex=1, xlab = "Confirmed Cases Per 1000", 
+     ylab = "Deaths Per 1000", main = "Outliers in California Cases Dataset Found Through K-Means Clustering (Normalized)")
+points(kmeans.result4$centers[,c("cases_per_1000", "deaths_per_1000")], col=1:3, pch=15, cex=2)
+points(ca10[outliers4, c("cases_per_1000", "deaths_per_1000")], pch="+", col=4, cex=3)
 
 #Cases
 ggplot(counties_CA, aes(long, lat, label = county)) + 
@@ -334,7 +372,18 @@ ggplot(counties_CA, aes(long, lat, label = county)) +
   scale_fill_gradient(low="yellow", high="red") + labs(fill = "Cases Per 1000", x = "Longitude", y = "Latitude") +
   labs(title = "COVID-19 Cases per 1000 People in California", subtitle = "Only counties reporting 100+ cases") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
-        plot.title = element_text(size=22))
+        legend.title = element_text(size=22), legend.text = element_text(size=18), plot.title = element_text(size=22))
+
+#Families with kids
+ggplot(counties_CA, aes(long, lat, label = county)) + 
+  geom_polygon(aes(group = group, fill = families_w_kids_per_1000)) +
+  geom_text_repel(data = counties_CA %>% filter(complete.cases(.)) %>% dplyr::group_by(county) %>%  
+                    dplyr::summarize(long = mean(long), lat = mean(lat)) %>% dplyr::mutate(county = str_to_title(county))) +
+  coord_quickmap() + 
+  scale_fill_gradient(low="pink", high="red") + labs(fill = "Families with Young Children Per 1000", x = "Longitude", y = "Latitude") +
+  labs(title = "Families with Young Children per 1000 People in California", subtitle = "Only counties reporting 100+ cases") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        legend.title = element_text(size=18), legend.text = element_text(size=13), plot.title = element_text(size=22))
 
 #Deaths
 ggplot(counties_CA, aes(long, lat, label = county)) + 
@@ -345,7 +394,7 @@ ggplot(counties_CA, aes(long, lat, label = county)) +
   scale_fill_gradient(low="lightblue", high="blue") + labs(fill = "Deaths Per 1000", x = "Longitude", y = "Latitude") +
   labs(title = "COVID-19 Deaths per 1000 People in California", subtitle = "Only counties reporting 100+ cases") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
-        plot.title = element_text(size=22))
+        legend.title = element_text(size=22), legend.text = element_text(size=18), plot.title = element_text(size=22))
 
 #Look at counties in CA - compare this to the graph we saw above which was scaled. Lassen isn't even on here
 CA.dat <- subset(imp.var.df, imp.var.df$state == "CA")
@@ -353,7 +402,17 @@ CA.dat2 <- subset(CA.dat, CA.dat$confirmed_cases >= 100000)
 ggplot(data = aggregate(CA.dat2$confirmed_cases, list(CA.dat2$county_name), mean), aes(Group.1, x)) + geom_col() + 
   xlab("County") +  ylab("Confirmed Cases") + ggtitle("Highest Confirmed COVID-19 Cases by California County (Not Normalized)") + 
   geom_bar(stat = "identity", fill = "pink") + 
-  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+  theme(axis.text.x=element_text(size=18), axis.text.y=element_text(size=18), axis.title=element_text(size=20), 
+        plot.title = element_text(size=22))   + 
+  scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE))
+
+CA.dat1 <- subset(cases_select, cases_select$state == "CA")
+CA.dat3 <- subset(CA.dat1, CA.dat1$cases_per_1000 >= 100)
+
+ggplot(data = aggregate(CA.dat3$cases_per_1000, list(CA.dat3$county_name), mean), aes(Group.1, x)) + geom_col() + 
+  xlab("County") +  ylab("Confirmed Cases Per 1000") + ggtitle("Highest Confirmed COVID-19 Cases by California County (Normalized)") + 
+  geom_bar(stat = "identity", fill = "darkgreen") + 
+  theme(axis.text.x=element_text(size=18), axis.text.y=element_text(size=18), axis.title=element_text(size=20), 
         plot.title = element_text(size=22))   + 
   scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE))
 
@@ -368,11 +427,31 @@ ggplot(data = cases_lassen, aes(x = date_new, y = confirmed_cases)) + geom_line(
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
         plot.title = element_text(size=22))
 
+pct_change1 <- ca %>%
+  arrange(date_new) %>%
+  group_by(county_name) %>%
+  mutate(pct_change1 = (confirmed_cases/dplyr::lag(confirmed_cases) - 1) * 100)
+
+cases_lassen1 <- pct_change1 %>% filter(county_name == "Lassen County ")
+
+ggplot(data = cases_lassen1, aes(x = date_new, y = pct_change1)) + geom_line() +  
+  ggtitle("Lassen COVID-19 Cases % Change Over Time")  + labs(x = "Date", y = "% Change in COVID-19 Cases") + scale_y_continuous(label=comma) + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
+
+
 #Mariposa cases overtime
 cases_mariposa <- ca %>% filter(county_name == "Mariposa County ")
 
 ggplot(data = cases_mariposa, aes(x = date_new, y = confirmed_cases)) + geom_line() + geom_smooth() + 
   ggtitle("Mariposa COVID-19 Cases Over Time")  + labs(x = "Date", y = "COVID-19 Cases") + scale_y_continuous(label=comma) + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
+
+cases_mariposa1 <- pct_change1 %>% filter(county_name == "Mariposa County ")
+
+ggplot(data = cases_mariposa1, aes(x = date_new, y = pct_change1)) + geom_line() +  
+  ggtitle("Mariposa COVID-19 Cases % Change Over Time")  + labs(x = "Date", y = "% Change in COVID-19 Cases") + scale_y_continuous(label=comma) + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
         plot.title = element_text(size=22))
 
@@ -384,17 +463,24 @@ ggplot(data = cases_LA, aes(x = date_new, y = confirmed_cases)) + geom_line() + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
         plot.title = element_text(size=22))
 
+cases_LA1 <- pct_change1 %>% filter(county_name == "Los Angeles County ")
+
+ggplot(data = cases_LA1, aes(x = date_new, y = pct_change1)) + geom_line() +  
+  ggtitle("Los Angeles COVID-19 Cases % Change Over Time")  + labs(x = "Date", y = "% Change in COVID-19 Cases") + scale_y_continuous(label=comma) + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        plot.title = element_text(size=22))
+
 #Children under 5 contrasted with covid cases per 1000 people
 cases_select$kids_under_5 <- cases_select$male_under_5_per_1000 + cases_select$female_under_5_per_1000
 
 ggplot(cases_select, aes(x = cases_per_1000, y = kids_under_5)) + geom_point() + geom_smooth(method = "lm", col = "deeppink") +
-  labs(x = "Cases Per 1000 People", y = "Kids Under 5 Per 1000 People", title = "COVID-19 Cases VS. Kids Under 5 Per 1000 People") +
+  labs(x = "Cases Per 1000 People", y = "Kids Under 5 Per 1000 People", title = "COVID-19 Cases VS. Kids Under 5 Per 1000 People (All of U.S.)") +
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
         plot.title = element_text(size=22))
 
 #Families with young children cases per 1000 people
 ggplot(cases_select, aes(x = cases_per_1000, y = families_with_young_kids_per_1000)) + geom_point() + geom_smooth(method = "lm", col = "deeppink") +
-  labs(x = "Cases Per 1000 People", y = "Families with Young Kids Per 1000 People", title = "COVID-19 Cases VS. Families with Young Kids Per 1000 People") +
+  labs(x = "Cases Per 1000 People", y = "Families with Young Kids Per 1000 People", title = "COVID-19 Cases VS. Families with Young Kids Per 1000 People (All of U.S.)") +
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
         plot.title = element_text(size=22))
 
@@ -507,7 +593,7 @@ ca5 <- ca4[complete.cases(ca4), ]
 #Correlation matrix
 cor_imp_ca4 <- cor(ca5[,c(5,6,7,21:36)])
 ggcorrplot(cor_imp_ca4, p.mat = cor_pmat(ca5[,c(5,6,7,21:36)]), insig = "blank", hc.order = TRUE) +
-  ggtitle("Correlation Matrix for New Table") + theme(plot.title = element_text(size=22))
+  ggtitle("Correlation Matrix for New California Dataset") + theme(plot.title = element_text(size=22))
 
 #Vaccines vs cases
 ca_vaccine$date_new <- as.Date(ca_vaccine$administered_date, format = "%m/%d/%y")
@@ -516,7 +602,7 @@ Imperial <- ca_vaccine %>% dplyr::filter(county == "Imperial County")
 ggplot(Imperial, aes(x = date_new, y = fully_vaccinated)) + geom_line() + 
    ggtitle("Imperial County Vaccinations Over Time") + theme_bw() + 
   xlab("Date") +  ylab("Number of Full Vaccinations") + 
-  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=22), 
+  theme(axis.text.x=element_text(size=22), axis.text.y=element_text(size=22), axis.title=element_text(size=22), 
         plot.title = element_text(size=22))
 
 Imperial_ca <- ca5 %>% dplyr::filter(county == "Imperial County")
@@ -524,7 +610,7 @@ Imperial_ca <- ca5 %>% dplyr::filter(county == "Imperial County")
 ggplot(Imperial_ca, aes(x = date_new, y = confirmed_cases)) + geom_line() + 
   ggtitle("Imperial County COVID-19 Cases Over Time") + theme_bw() + 
   xlab("Date") +  ylab("Number of COVID-19 Cases") + 
-  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=22), 
+  theme(axis.text.x=element_text(size=22), axis.text.y=element_text(size=22), axis.title=element_text(size=22), 
         plot.title = element_text(size=22))
 
 #Humboldt
@@ -533,7 +619,7 @@ hum <- ca_vaccine %>% dplyr::filter(county == "Humboldt County")
 ggplot(hum, aes(x = date_new, y = fully_vaccinated)) + geom_line() + 
   ggtitle("Humboldt County Vaccinations Over Time") + theme_bw() + 
   xlab("Date") +  ylab("Number of Full Vaccinations") + 
-  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=22), 
+  theme(axis.text.x=element_text(size=22), axis.text.y=element_text(size=22), axis.title=element_text(size=22), 
         plot.title = element_text(size=22))
 
 hum_ca <- ca5 %>% dplyr::filter(county == "Humboldt County")
@@ -541,7 +627,7 @@ hum_ca <- ca5 %>% dplyr::filter(county == "Humboldt County")
 ggplot(hum_ca, aes(x = date_new, y = confirmed_cases)) + geom_line() + 
   ggtitle("Humboldt County COVID-19 Cases Over Time") + theme_bw() + 
   xlab("Date") +  ylab("Number of COVID-19 Cases") + 
-  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=22), 
+  theme(axis.text.x=element_text(size=22), axis.text.y=element_text(size=22), axis.title=element_text(size=22), 
         plot.title = element_text(size=22))
 
 
@@ -556,14 +642,14 @@ ggplot(data = aggregate(ca5$cases_per_1000, list(ca5$age_bin), mean),
        mapping = aes(reorder(Group.1, -x), x)) + geom_col() + 
   xlab("Age Group") +  ylab("Average Cases Per 1000  Across Counties") + ggtitle("Average COVID-19 Cases Per 1000 People by Age Group") + 
   geom_bar(stat = "identity", fill = "purple") + 
-  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=22), 
+  theme(axis.text.x=element_text(size=22), axis.text.y=element_text(size=22), axis.title=element_text(size=22), 
         plot.title = element_text(size=22))
 
 ggplot(data = aggregate(ca5$fully_vaccinated_per_1000, list(ca5$age_bin), mean), 
        mapping = aes(reorder(Group.1, -x), x)) + geom_col() + 
   xlab("Age Group") +  ylab("Average Vaccinations Per 1000 Across Counties") + ggtitle("Average Full Vaccinations Per 1000 People by Age Group") + 
   geom_bar(stat = "identity", fill = "blue") + 
-  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=22), 
+  theme(axis.text.x=element_text(size=22), axis.text.y=element_text(size=22), axis.title=element_text(size=22), 
         plot.title = element_text(size=22))
 
 #Median income vs cases_per_1000
@@ -577,7 +663,7 @@ ggplot(data = aggregate(ca5$cases_per_1000, list(ca5$inc_bin), mean),
   xlab("Income Group") +  ylab("Average Cases Per 1000 Across Counties") + 
   ggtitle("Average COVID-19 Cases Per 1000 People by Income Group") + 
   geom_bar(stat = "identity", fill = "deeppink") + 
-  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=22), 
+  theme(axis.text.x=element_text(size=22), axis.text.y=element_text(size=22), axis.title=element_text(size=22), 
         plot.title = element_text(size=22))
 
 ggplot(data = aggregate(ca5$fully_vaccinated_per_1000, list(ca5$inc_bin), mean), 
@@ -585,9 +671,9 @@ ggplot(data = aggregate(ca5$fully_vaccinated_per_1000, list(ca5$inc_bin), mean),
   xlab("Income Group") +  ylab("Average Vaccinations Per 1000 Across Counties") + 
   ggtitle("Average Full Vaccinations Per 1000 People by Income Group") + 
   geom_bar(stat = "identity", fill = "gold") + 
-  theme(axis.text.x=element_text(size=13), axis.text.y=element_text(size=12), axis.title=element_text(size=22), 
+  theme(axis.text.x=element_text(size=22), axis.text.y=element_text(size=22), axis.title=element_text(size=22), 
         plot.title = element_text(size=22))
 
-#export files for submission to kaggle
+#export files 
 which(is.na(ca5), arr.ind=TRUE) #check for NA
 write.csv(ca5, file="/Users/allisonking/Desktop/ca5.csv",row.names = FALSE)
