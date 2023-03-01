@@ -677,3 +677,14 @@ ggplot(data = aggregate(ca5$fully_vaccinated_per_1000, list(ca5$inc_bin), mean),
 #export files 
 which(is.na(ca5), arr.ind=TRUE) #check for NA
 write.csv(ca5, file="/Users/allisonking/Desktop/ca5.csv",row.names = FALSE)
+
+#Remove date from ca5
+ca21 <- ca5[,-2]
+
+# Remove duplicates based on Sepal.Width columns
+ca22 <- ca21[!duplicated(ca21$county), ]
+ca23 <- ca22[,-c(20:37)]
+
+#export files 
+which(is.na(ca23), arr.ind=TRUE) #check for NA
+write.csv(ca23, file="/Users/allisonking/Desktop/ca23.csv",row.names = FALSE)
