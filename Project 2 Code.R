@@ -122,6 +122,20 @@ cases_CA_scaled <- ca.raw1 %>%
 
 summary(cases_CA_scaled)
 
+#PCA
+caPCA <- prcomp(cases_CA_scaled, center=T, scale=T)
+summary(caPCA)
+
+#Inspect loadings
+caPCA$rotation
+caPCA$rotation[,1:3]
+
+fviz_eig(caPCA, ncp=4)
+
+#Biplot
+fviz_pca_biplot(caPCA, repel = TRUE, col.var = "blue", 
+                col.ind = "red")
+
 set.seed(123)
 
 #Function to compute total within-cluster sum of square 
@@ -173,6 +187,13 @@ ggplot(counties_CA_clust, aes(long, lat)) +
   scale_fill_viridis_d() + 
   labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases")
 
+#K-means with 4 clusters with manhattan distance
+d1 <- dist(cases_CA_scaled, method = "manhattan")
+
+km1 <- kmeans(d1, centers = 4, nstart = 25)
+
+fviz_cluster(km1, data = cases_CA_scaled)
+
 #Calculate SSB for measure of separation (only for euclidean distance)
 
 
@@ -184,18 +205,20 @@ ggplot(counties_CA_clust, aes(long, lat)) +
 
 
 
-#Try with manhattan distance for outliers
-
 
 
 
 #Hierarchical clustering - complete linkage used automatically
 clusters1 <- hclust(dist(cases_CA_scaled))
 plot(clusters1)
-fviz_dend(clusters1, k = 15)
+fviz_dend(clusters1, k = 4)
 
-#Cut clusters off at 10
-clusterCut <- cutree(clusters1, 10)
+gap.stat <- clusGap(cases_CA_scaled, FUN = hcut, K.max = 15)
+
+fviz_gap_stat(gap.stat)
+
+#Cut clusters off at 4
+clusterCut <- cutree(clusters1, 4)
 
 
 #Graph the hierarchical clusters
@@ -274,6 +297,16 @@ ac <- function(x) {
 }
 
 map_dbl(m, ac)
+
+#Agglomerative clustering using manhattan distance
+#Dissimilarity matrix
+d2 <- dist(cases_CA_scaled, method = "ward")
+
+#Hierarchical clustering using Complete Linkage
+hc3 <- hclust(d2, method = "ward" )
+
+#Plot the obtained dendrogram
+plot(h3, cex = 0.6, hang = -1)
 
 
 #Try out DBSCAN algorithm - find optimal epsilon
