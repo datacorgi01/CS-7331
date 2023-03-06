@@ -1,13 +1,15 @@
-library("tidyverse")
-library("ggplot2")
-library("DT")
-install.packages("fpc")
-install.packages("dbscan")
-library("fpc")
-library("dbscan")
+#install.packages("fpc")
+#install.packages("dbscan")
+library(tidyverse)
+library(ggplot2)
+library(DT)
+library(fpc)
+library(dbscan)
+library(cluster)
+library(dbscan)
 
 #Read in already prepared data from project 1
-ca_raw <- read.csv('/Users/allisonking/Desktop/ca23.csv', stringsAsFactors = T)
+ca_raw <- read.csv('/Users/allisonking/Desktop/ca5.csv', stringsAsFactors = T)
 str(ca_raw)
 
 #Normalize data 
@@ -62,6 +64,21 @@ variances.ca1 <- apply(ca.raw2[,c(2:20,35)], 2, var)
 stdevs.ca1 <- apply(ca.raw2[,c(2:20,35)], 2, sd)
 modes.ca1 <- apply(ca.raw2[,c(2:20,35)], 2, mode)
 
+#Find outliers in dataset
+#Removing factor columnn
+ca1 <- ca.raw3[, -1]
+
+set.seed(240) 
+kmeans.result3 <- kmeans(ca1, centers = 3)
+kmeans.result3
+
+centers3 <- kmeans.result3$centers[kmeans.result3$cluster, ] 
+distances3 <- sqrt(rowSums((ca1 - centers3)^2))
+outliers3 <- order(distances3, decreasing=T)[1:10]
+
+print(outliers3)
+print(ca.raw3[outliers3,])
+
 #Visualize data using map of California
 counties <- as_tibble(map_data("county"))
 
@@ -76,7 +93,7 @@ ggplot(counties_CA_cl, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = death_per_case)) +
   coord_quickmap() +
   scale_fill_continuous(type = "gradient") +
-  labs(title = "Clusters of Deaths Per Case", subtitle = "Only Counties Reporting 100+ Cases", fill = "Deaths Per Case", 
+  labs(title = "Deaths Per Case", subtitle = "Only Counties Reporting 100+ Cases", fill = "Deaths Per Case", 
        x = "Longitude", y = "Latitude") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
         legend.title = element_text(size=22), legend.text = element_text(size=18), plot.title = element_text(size=22))
@@ -105,8 +122,26 @@ cases_CA_scaled <- ca.raw1 %>%
 
 summary(cases_CA_scaled)
 
-#K-means with 5 clusters
-km <- kmeans(cases_CA_scaled, centers = 5, nstart = 25)
+set.seed(123)
+
+#Function to compute total within-cluster sum of square 
+wss <- function(k) {
+  kmeans(cases_CA_scaled, k, nstart = 10 )$tot.withinss
+}
+
+#Compute and plot wss for k = 1 to k = 15
+k.values <- 1:15
+
+#Extract wss for 2-15 clusters
+wss_values <- map_dbl(k.values, wss)
+
+plot(k.values, wss_values,
+     type="b", pch = 19, frame = FALSE, 
+     xlab="Number of clusters K",
+     ylab="Total within-clusters sum of squares")
+
+#K-means with 4 clusters
+km <- kmeans(cases_CA_scaled, centers = 4, nstart = 25)
 km
 
 #Look at silhouette coefficient
@@ -117,7 +152,7 @@ fviz_cluster(km, data = cases_CA_scaled)
 #Look at profiles
 ggplot(pivot_longer(as_tibble(km$centers,  rownames = "cluster"), 
                     cols = colnames(km$centers)), 
-       aes(y = name, x = value)) +
+       aes(y = name, x = value, fill = cluster)) +
   geom_bar(stat = "identity") +
   facet_grid(rows = vars(cluster))
 
@@ -136,18 +171,32 @@ ggplot(counties_CA_clust, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "Clusters", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases")
+
+#Calculate SSB for measure of separation (only for euclidean distance)
+
+
+#Calculate SSE for measure of cohesion
+
+
+#Calculate proximity matrix
+
+
+
 
 #Try with manhattan distance for outliers
 
 
 
-#Hierarchical clustering
+
+#Hierarchical clustering - complete linkage used automatically
 clusters1 <- hclust(dist(cases_CA_scaled))
 plot(clusters1)
+fviz_dend(clusters1, k = 15)
 
 #Cut clusters off at 10
 clusterCut <- cutree(clusters1, 10)
+
 
 #Graph the hierarchical clusters
 counties_CA_clust1 <- counties_CA %>% left_join(cases_CA %>% 
@@ -157,7 +206,24 @@ ggplot(counties_CA_clust1, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "Clusters", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "Hierarchical Clusters Using Complete Linkage", subtitle = "Only counties reporting 100+ cases")
+
+#Hierarchical clustering - single linkage
+clusters2 <- hclust(dist(cases_CA_scaled), method = "single")
+plot(clusters2)
+
+#Cut clusters off at 4
+clusterCut1 <- cutree(clusters2, 30)
+
+#Graph the hierarchical clusters
+counties_CA_clust2 <- counties_CA %>% left_join(cases_CA %>% 
+                                                  add_column(cluster = factor(clusterCut1)))
+
+ggplot(counties_CA_clust2, aes(long, lat)) + 
+  geom_polygon(aes(group = group, fill = cluster)) +
+  coord_quickmap() + 
+  scale_fill_viridis_d() + 
+  labs(title = "Hierarchical Clusters Using Single Linkage", subtitle = "Only counties reporting 100+ cases")
 
 #Check if cases and deaths are different in different clusters - K-means
 cases_CA_km <- cases_CA %>% add_column(cluster = factor(km$cluster))
@@ -166,23 +232,56 @@ cases_CA_km %>% group_by(cluster) %>% summarize(
   avg_cases = mean(cases_per_1000), 
   avg_deaths = mean(deaths_per_1000))
 
-#Check if cases and deaths are different in different clusters - Hierarchical
+#Check if cases and deaths are different in different clusters - Hierarchical (complete linkage)
 cases_CA_h <- cases_CA %>% add_column(cluster = factor(clusterCut))
 
 cases_CA_h %>% group_by(cluster) %>% summarize(
   avg_cases = mean(cases_per_1000), 
   avg_deaths = mean(deaths_per_1000))
 
-#Check optimal number of clusters for hierarchical
-fviz_nbclust(cases_CA_scaled, cluster::hcut, method='silhouette')
+
+
+#Agglomerative clustering usign euclidean distance
+#Dissimilarity matrix
+d <- dist(cases_CA_scaled, method = "euclidean")
+
+#Hierarchical clustering using Complete Linkage
+hc1 <- hclust(d, method = "complete" )
+
+#Plot the obtained dendrogram
+plot(hc1, cex = 0.6, hang = -1)
+
+
+#Agglomerative clustering using manhattan distance
+#Dissimilarity matrix
+d1 <- dist(cases_CA_scaled, method = "manhattan")
+
+#Hierarchical clustering using Complete Linkage
+hc2 <- hclust(d1, method = "complete" )
+
+#Plot the obtained dendrogram
+plot(hc2, cex = 0.6, hang = -1)
+
+
+#Which clustering hierarchical method is the strongest
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+
+#Function to compute coefficient
+ac <- function(x) {
+  agnes(cases_CA_scaled, method = x)$ac
+}
+
+map_dbl(m, ac)
 
 
 #Try out DBSCAN algorithm - find optimal epsilon
-dbscan::kNNdistplot(cases_CA_scaled, k =  5)
-abline(h = 0.15, lty = 2)
+kNNdistplot(cases_CA_scaled, k = 5)
+abline(h = 5, col = "red")
 
-set.seed(123)
-db <- fpc::dbscan(cases_CA_scaled, eps = 0.01, MinPts = 5)
-fviz_cluster(db, cases_CA_scaled, stand = FALSE, geom = "point")
+db <- dbscan(cases_CA_scaled, eps = 5, minPts = 4)
+db
 
+fviz_cluster(db, data = cases_CA_scaled)
 
