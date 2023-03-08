@@ -56,28 +56,34 @@ mode <- function(x) {
 
 modes.ca <- apply(ca.raw3[,2:20], 2, mode)
 
-#Summary statistics for untransformed data set
-avgs.ca1 <- apply(ca.raw2[,c(2:20,35)], 2, mean)
-ranges.ca1 <- apply(ca.raw2[,c(2:20,35)], 2, range)
-medians.ca1 <- apply(ca.raw2[,c(2:20,35)], 2, median)
-variances.ca1 <- apply(ca.raw2[,c(2:20,35)], 2, var)
-stdevs.ca1 <- apply(ca.raw2[,c(2:20,35)], 2, sd)
-modes.ca1 <- apply(ca.raw2[,c(2:20,35)], 2, mode)
-
 #Find outliers in dataset
-#Removing factor columnn
-ca1 <- ca.raw3[, -1]
+#Removing factor column and calculating LOF
+lof <- lof(ca.raw3[, -1], minPts= 10)
+lof
 
-set.seed(240) 
-kmeans.result3 <- kmeans(ca1, centers = 3)
-kmeans.result3
+ca.raw4 <- ca.raw3[, -1]
 
-centers3 <- kmeans.result3$centers[kmeans.result3$cluster, ] 
-distances3 <- sqrt(rowSums((ca1 - centers3)^2))
-outliers3 <- order(distances3, decreasing=T)[1:10]
+ggplot(tibble(index = seq_len(length(lof)), lof = sort(lof)), aes(index, lof)) +
+  geom_line() +
+  geom_hline(yintercept = 3, color = "red", linetype = 2)
 
-print(outliers3)
-print(ca.raw3[outliers3,])
+ggplot(ca.raw4 %>% add_column(outlier = lof >= 3), aes(fully_vaccinated_per_1000, in_school_per_1000, color = outlier)) +
+  geom_point()
+
+#LA is outlier - remove this in below code
+ca.raw5 <- ca.raw4 %>% add_column(outlier = lof >= 3)
+
+ca_scaled_clean <- ca.raw4  %>% filter(lof < 3)
+
+km <- kmeans(ca_scaled_clean, centers = 4, nstart = 10)
+
+ca_scaled_clean_km <- ca_scaled_clean %>%
+  add_column(cluster = factor(km$cluster))
+
+centroids <- as_tibble(km$centers, rownames = "cluster")
+
+ggplot(ca_scaled_clean_km, aes(x = fully_vaccinated_per_1000, y = in_school_per_1000, color = cluster)) + geom_point() +
+  geom_point(data = centroids, aes(x = fully_vaccinated_per_1000, y = in_school_per_1000, color = cluster), shape = 3, size = 10)
 
 #Visualize data using map of California
 counties <- as_tibble(map_data("county"))
@@ -98,31 +104,58 @@ ggplot(counties_CA_cl, aes(long, lat)) +
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
         legend.title = element_text(size=22), legend.text = element_text(size=18), plot.title = element_text(size=22))
 
-#Standardize untransformed variables
-cases_CA_scaled <- ca.raw1 %>% 
+#Use transformed variables
+cases_CA_scaled <- ca_scaled_clean %>% 
   select(
+    median_age,
     median_income,
-    median_age, 
     # total_pop, # you should use density
-    black_pop,
-    white_pop,
-    asian_pop,
-    employed_pop,
-    unemployed_pop,
-    bachelors_degree_or_higher_25_64,
-    children,
-    in_school,
-    pop_determined_poverty_status, 
-    total_doses,
-    fully_vaccinated,
-    partially_vaccinated,
-    less_than_high_school_graduate
-  ) %>% 
-  scale() %>% as_tibble()
+    black_pop_per_1000,
+    white_pop_per_1000,
+    asian_pop_per_1000,
+    employed_pop_per_1000,
+    unemployed_pop_per_1000,
+    bachelors_degree_or_higher_25_64_per_1000,
+    children_per_1000,
+    in_school_per_1000,
+    poverty_per_1000, 
+    total_doses_per_1000,
+    fully_vaccinated_per_1000,
+    partially_vaccinated_per_1000,
+    less_than_high_school_graduate_per_1000
+  ) 
 
 summary(cases_CA_scaled)
 
-#PCA
+#Break into three subsets
+cases_CA_scaled_edu <- ca_scaled_clean %>% 
+  select(
+    employed_pop_per_1000,
+    unemployed_pop_per_1000,
+    bachelors_degree_or_higher_25_64_per_1000,
+    children_per_1000,
+    in_school_per_1000,
+    less_than_high_school_graduate_per_1000
+  ) 
+
+cases_CA_scaled_vac <- ca_scaled_clean %>% 
+  select(
+    total_doses_per_1000,
+    fully_vaccinated_per_1000,
+    partially_vaccinated_per_1000
+  ) 
+
+cases_CA_scaled_demo <- ca_scaled_clean %>% 
+  select(
+    median_age,
+    median_income,
+    black_pop_per_1000,
+    white_pop_per_1000,
+    asian_pop_per_1000,
+    poverty_per_1000
+  ) 
+
+#PCA for PVE
 caPCA <- prcomp(cases_CA_scaled, center=T, scale=T)
 summary(caPCA)
 
@@ -170,12 +203,14 @@ ggplot(pivot_longer(as_tibble(km$centers,  rownames = "cluster"),
   geom_bar(stat = "identity") +
   facet_grid(rows = vars(cluster))
 
-#Look at clusters on a map
+#Look at clusters on a map - Total
 counties <- as_tibble(map_data("county"))
 
 counties_CA <- counties %>% dplyr::filter(region == "california")  %>% dplyr::rename(c(county = subregion))
 
-cases_CA <- ca.raw3 %>% mutate(county = county %>% str_to_lower() %>% 
+ca.raw5 <- ca.raw3[-1,]
+
+cases_CA <- ca.raw5 %>% mutate(county = county %>% str_to_lower() %>% 
                                  str_replace('\\s+county\\s*$', ''))
 
 counties_CA_clust <- counties_CA %>% left_join(cases_CA %>% 
@@ -186,6 +221,115 @@ ggplot(counties_CA_clust, aes(long, lat)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
   labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases")
+
+#Broken up by the 3 subsets
+#Education
+km <- kmeans(cases_CA_scaled_edu, centers = 4, nstart = 25)
+km
+
+#Look at silhouette coefficient
+fviz_nbclust(cases_CA_scaled_edu, kmeans, method='silhouette')
+
+fviz_cluster(km, data = cases_CA_scaled_edu)
+
+#Look at profiles
+ggplot(pivot_longer(as_tibble(km$centers,  rownames = "cluster"), 
+                    cols = colnames(km$centers)), 
+       aes(y = name, x = value, fill = cluster)) +
+  geom_bar(stat = "identity") +
+  facet_grid(rows = vars(cluster))
+
+#Look at clusters on a map - Education
+counties <- as_tibble(map_data("county"))
+
+counties_CA <- counties %>% dplyr::filter(region == "california")  %>% dplyr::rename(c(county = subregion))
+
+ca.raw5 <- ca.raw3[-1,]
+
+cases_CA <- ca.raw5 %>% mutate(county = county %>% str_to_lower() %>% 
+                                 str_replace('\\s+county\\s*$', ''))
+
+counties_CA_clust <- counties_CA %>% left_join(cases_CA %>% 
+                                                 add_column(cluster = factor(km$cluster)))
+
+ggplot(counties_CA_clust, aes(long, lat)) + 
+  geom_polygon(aes(group = group, fill = cluster)) +
+  coord_quickmap() + 
+  scale_fill_viridis_d() + 
+  labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases")
+
+
+#Vaccine
+km <- kmeans(cases_CA_scaled_vac, centers = 4, nstart = 25)
+km
+
+#Look at silhouette coefficient
+fviz_nbclust(cases_CA_scaled_vac, kmeans, method='silhouette')
+
+fviz_cluster(km, data = cases_CA_scaled_vac)
+
+#Look at profiles
+ggplot(pivot_longer(as_tibble(km$centers,  rownames = "cluster"), 
+                    cols = colnames(km$centers)), 
+       aes(y = name, x = value, fill = cluster)) +
+  geom_bar(stat = "identity") +
+  facet_grid(rows = vars(cluster))
+
+#Look at clusters on a map - Vaccine
+counties <- as_tibble(map_data("county"))
+
+counties_CA <- counties %>% dplyr::filter(region == "california")  %>% dplyr::rename(c(county = subregion))
+
+ca.raw5 <- ca.raw3[-1,]
+
+cases_CA <- ca.raw5 %>% mutate(county = county %>% str_to_lower() %>% 
+                                 str_replace('\\s+county\\s*$', ''))
+
+counties_CA_clust <- counties_CA %>% left_join(cases_CA %>% 
+                                                 add_column(cluster = factor(km$cluster)))
+
+ggplot(counties_CA_clust, aes(long, lat)) + 
+  geom_polygon(aes(group = group, fill = cluster)) +
+  coord_quickmap() + 
+  scale_fill_viridis_d() + 
+  labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases")
+
+
+#Demographics
+km <- kmeans(cases_CA_scaled_demo, centers = 4, nstart = 25)
+km
+
+#Look at silhouette coefficient
+fviz_nbclust(cases_CA_scaled_demo, kmeans, method='silhouette')
+
+fviz_cluster(km, data = cases_CA_scaled_demo)
+
+#Look at profiles
+ggplot(pivot_longer(as_tibble(km$centers,  rownames = "cluster"), 
+                    cols = colnames(km$centers)), 
+       aes(y = name, x = value, fill = cluster)) +
+  geom_bar(stat = "identity") +
+  facet_grid(rows = vars(cluster))
+
+#Look at clusters on a map - Demographics
+counties <- as_tibble(map_data("county"))
+
+counties_CA <- counties %>% dplyr::filter(region == "california")  %>% dplyr::rename(c(county = subregion))
+
+ca.raw5 <- ca.raw3[-1,]
+
+cases_CA <- ca.raw5 %>% mutate(county = county %>% str_to_lower() %>% 
+                                 str_replace('\\s+county\\s*$', ''))
+
+counties_CA_clust <- counties_CA %>% left_join(cases_CA %>% 
+                                                 add_column(cluster = factor(km$cluster)))
+
+ggplot(counties_CA_clust, aes(long, lat)) + 
+  geom_polygon(aes(group = group, fill = cluster)) +
+  coord_quickmap() + 
+  scale_fill_viridis_d() + 
+  labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases")
+
 
 #K-means with 4 clusters with manhattan distance
 d1 <- dist(cases_CA_scaled, method = "manhattan")
@@ -200,7 +344,6 @@ fviz_cluster(km1, data = cases_CA_scaled)
 #Calculate SSE for measure of cohesion
 
 
-#Calculate proximity matrix
 
 
 
@@ -235,7 +378,7 @@ ggplot(counties_CA_clust1, aes(long, lat)) +
 clusters2 <- hclust(dist(cases_CA_scaled), method = "single")
 plot(clusters2)
 
-#Cut clusters off at 4
+#Cut clusters off at X
 clusterCut1 <- cutree(clusters2, 30)
 
 #Graph the hierarchical clusters
@@ -317,4 +460,5 @@ db <- dbscan(cases_CA_scaled, eps = 5, minPts = 4)
 db
 
 fviz_cluster(db, data = cases_CA_scaled)
+
 
