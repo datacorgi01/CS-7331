@@ -1,5 +1,6 @@
 #install.packages("fpc")
 #install.packages("dbscan")
+install.packages("seriation")
 library(tidyverse)
 library(ggplot2)
 library(DT)
@@ -7,6 +8,7 @@ library(fpc)
 library(dbscan)
 library(cluster)
 library(dbscan)
+library(seriation)
 
 #Read in already prepared data from project 1
 ca_raw <- read.csv('/Users/allisonking/Desktop/ca5.csv', stringsAsFactors = T)
@@ -222,8 +224,18 @@ ggplot(counties_CA_clust, aes(long, lat)) +
   scale_fill_viridis_d() + 
   labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases")
 
+#Look at measures of separation and measures of cohesion
+d <- dist(cases_CA_scaled, method = "euclidean")
+km <- kmeans(d, centers = 4, nstart = 25)
+
+fpc::cluster.stats(d, km$cluster)
+
+fviz_silhouette(silhouette(km$cluster, d1))
+
 #Broken up by the 3 subsets
 #Education
+d <- dist(cases_CA_scaled_edu, method = "euclidean")
+
 km <- kmeans(cases_CA_scaled_edu, centers = 4, nstart = 25)
 km
 
@@ -258,6 +270,13 @@ ggplot(counties_CA_clust, aes(long, lat)) +
   scale_fill_viridis_d() + 
   labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases")
 
+#Look at measures of separation and measures of cohesion
+d <- dist(cases_CA_scaled_edu, method = "euclidean")
+km <- kmeans(d, centers = 4, nstart = 25)
+
+fpc::cluster.stats(d, km$cluster)
+
+fviz_silhouette(silhouette(km$cluster, d1))
 
 #Vaccine
 km <- kmeans(cases_CA_scaled_vac, centers = 4, nstart = 25)
@@ -294,6 +313,13 @@ ggplot(counties_CA_clust, aes(long, lat)) +
   scale_fill_viridis_d() + 
   labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases")
 
+#Look at measures of separation and measures of cohesion
+d <- dist(cases_CA_scaled_vac, method = "euclidean")
+km <- kmeans(d, centers = 4, nstart = 25)
+
+fpc::cluster.stats(d, km$cluster)
+
+fviz_silhouette(silhouette(km$cluster, d1))
 
 #Demographics
 km <- kmeans(cases_CA_scaled_demo, centers = 4, nstart = 25)
@@ -330,39 +356,78 @@ ggplot(counties_CA_clust, aes(long, lat)) +
   scale_fill_viridis_d() + 
   labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases")
 
+#Look at measures of separation and measures of cohesion
+d <- dist(cases_CA_scaled_demo, method = "euclidean")
+km <- kmeans(d, centers = 4, nstart = 25)
 
-#K-means with 4 clusters with manhattan distance
+fpc::cluster.stats(d, km$cluster)
+
+fviz_silhouette(silhouette(km$cluster, d1))
+
+#K-means with 4 clusters with manhattan distance - Total
 d1 <- dist(cases_CA_scaled, method = "manhattan")
 
 km1 <- kmeans(d1, centers = 4, nstart = 25)
 
 fviz_cluster(km1, data = cases_CA_scaled)
 
-#Calculate SSB for measure of separation (only for euclidean distance)
+#Look at measures of separation and measures of cohesion
+fpc::cluster.stats(d1, km1$cluster)
+
+fviz_silhouette(silhouette(km1$cluster, d1))
 
 
-#Calculate SSE for measure of cohesion
+#K-means with 4 clusters with manhattan distance - Education
+d1 <- dist(cases_CA_scaled_edu, method = "manhattan")
+
+km1 <- kmeans(d1, centers = 4, nstart = 25)
+
+fviz_cluster(km1, data = cases_CA_scaled)
+
+#Look at measures of separation and measures of cohesion
+fpc::cluster.stats(d1, km1$cluster)
+
+fviz_silhouette(silhouette(km1$cluster, d1))
+
+#K-means with 4 clusters with manhattan distance - Vaccine
+d1 <- dist(cases_CA_scaled_vac, method = "manhattan")
+
+km1 <- kmeans(d1, centers = 4, nstart = 25)
+
+fviz_cluster(km1, data = cases_CA_scaled)
+
+#Look at measures of separation and measures of cohesion
+fpc::cluster.stats(d1, km1$cluster)
+
+fviz_silhouette(silhouette(km1$cluster, d1))
+
+#K-means with 3 clusters with manhattan distance - Demographic
+d1 <- dist(cases_CA_scaled_demo, method = "manhattan")
+
+km1 <- kmeans(d1, centers = 3, nstart = 25)
+
+fviz_cluster(km1, data = cases_CA_scaled)
+
+#Look at measures of separation and measures of cohesion
+fpc::cluster.stats(d1, km1$cluster)
+
+fviz_silhouette(silhouette(km1$cluster, d1))
 
 
 
 
-
-
-
-
-
-#Hierarchical clustering - complete linkage used automatically
+#Hierarchical clustering - complete linkage used automatically - Total
 clusters1 <- hclust(dist(cases_CA_scaled))
 plot(clusters1)
-fviz_dend(clusters1, k = 4)
 
 gap.stat <- clusGap(cases_CA_scaled, FUN = hcut, K.max = 15)
-
 fviz_gap_stat(gap.stat)
+
+
+fviz_cluster(list(data = cases_CA_scaled, cluster = cutree(clusters1, k = 4)), geom = "point")
 
 #Cut clusters off at 4
 clusterCut <- cutree(clusters1, 4)
-
 
 #Graph the hierarchical clusters
 counties_CA_clust1 <- counties_CA %>% left_join(cases_CA %>% 
@@ -373,6 +438,38 @@ ggplot(counties_CA_clust1, aes(long, lat)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
   labs(title = "Hierarchical Clusters Using Complete Linkage", subtitle = "Only counties reporting 100+ cases")
+
+
+#Hierarchical clustering - complete linkage used automatically - Education
+clusters1 <- hclust(dist(cases_CA_scaled_edu))
+plot(clusters1)
+
+gap.stat <- clusGap(cases_CA_scaled_edu, FUN = hcut, K.max = 15)
+fviz_gap_stat(gap.stat)
+
+
+fviz_cluster(list(data = cases_CA_scaled_edu, cluster = cutree(clusters1, k = 4)), geom = "point")
+
+#Cut clusters off at 4
+clusterCut <- cutree(clusters1, 4)
+
+#Graph the hierarchical clusters
+counties_CA_clust1 <- counties_CA %>% left_join(cases_CA %>% 
+                                                  add_column(cluster = factor(clusterCut)))
+
+ggplot(counties_CA_clust1, aes(long, lat)) + 
+  geom_polygon(aes(group = group, fill = cluster)) +
+  coord_quickmap() + 
+  scale_fill_viridis_d() + 
+  labs(title = "Hierarchical Clusters Using Complete Linkage", subtitle = "Only counties reporting 100+ cases")
+
+
+
+
+
+
+
+
 
 #Hierarchical clustering - single linkage
 clusters2 <- hclust(dist(cases_CA_scaled), method = "single")
@@ -441,16 +538,20 @@ ac <- function(x) {
 
 map_dbl(m, ac)
 
-#Agglomerative clustering using manhattan distance
+#Agglomerative clustering using ward's
 #Dissimilarity matrix
-d2 <- dist(cases_CA_scaled, method = "ward")
-
-#Hierarchical clustering using Complete Linkage
-hc3 <- hclust(d2, method = "ward" )
+hc3 <- agnes(cases_CA_scaled, method = "ward")
 
 #Plot the obtained dendrogram
-plot(h3, cex = 0.6, hang = -1)
+pltree(hc3, cex = 0.6, hang = -1, main = "Dendrogram of agnes")
 
+
+
+
+k <- clusGap(cases_CA_scaled, FUN = hcut,  nstart = 10, K.max = 10)
+plot(k)
+
+pimage(d2, order=order(hc3$cluster), col = bluered(100))
 
 #Try out DBSCAN algorithm - find optimal epsilon
 kNNdistplot(cases_CA_scaled, k = 5)
