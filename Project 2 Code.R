@@ -239,15 +239,18 @@ ggplot(counties_CA_clust, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "K-Means Clusters with Euclidean Distance (Education-Related Variables)", subtitle = "Only counties reporting 100+ cases")
-
+  labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases (Education-Related Variables)", 
+       fill = "Clusters", x = "Longitude", y = "Latitude") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        legend.title = element_text(size=22), legend.text = element_text(size=18), plot.title = element_text(size=22))
+       
+       
 #Look at measures of separation and measures of cohesion
 d <- dist(cases_CA_scaled_edu, method = "euclidean")
-km <- kmeans(d, centers = 4, nstart = 25)
 
 fpc::cluster.stats(d, km$cluster)
 
-fviz_silhouette(silhouette(km$cluster, d), main='Clusters Silhouette Plot with Average Silouette Width: 0.57 (Education-Related Variables)') +
+fviz_silhouette(silhouette(km$cluster, d), main='Clusters Silhouette Plot with Average Silouette Width: 0.42 (Education-Related Variables)') +
   theme(axis.text.y = element_text(size = 15), title = element_text(size = 15))
 
 #Check if cases and deaths are different in different clusters (Ground Truth)
@@ -310,8 +313,8 @@ ggplot(counties_CA_clust, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases", fill = "Cluster", 
-       x = "Longitude", y = "Latitude") + 
+  labs(title = "K-Means Clusters with Euclidean Distance (Vaccinne-Related Variables)", subtitle = "Only counties reporting 100+ cases", 
+       fill = "Cluster", x = "Longitude", y = "Latitude") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
         legend.title = element_text(size=22), legend.text = element_text(size=18), plot.title = element_text(size=22))
 
@@ -383,7 +386,7 @@ ggplot(counties_CA_clust, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "K-Means Clusters with Euclidean Distance (Demographic-Related Variables)", subtitle = "Only counties reporting 100+ cases")
 
 #Look at measures of separation and measures of cohesion
 d <- dist(cases_CA_scaled_demo, method = "euclidean")
@@ -486,8 +489,8 @@ d <- dist(cases_CA_scaled_edu)
 fpc::cluster.stats(d, clusterCut)
 
 #Show average dissimilarities between clusters
-pimage(d, order=order(clusterCut), col = bluered(100))
-dissplot(d, labels = cutree(clusters1, k = 9), col = bluered(100))
+pimage(d, order=order(clusterCut), col = bluered(100), main = "Matrix Shading for Clusters (Education)")
+dissplot(d, labels = cutree(clusters1, k = 9), col = bluered(100), main = "Dissimilarity Matrix Between Clusters (Education)")
 
 #Graph the hierarchical clusters
 counties_CA_clust1 <- counties_CA %>% left_join(cases_CA %>% 
@@ -497,7 +500,7 @@ ggplot(counties_CA_clust1, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "Hierarchical Clusters Using Complete Linkage", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "Hierarchical Clusters Using Complete Linkage (Education)", subtitle = "Only counties reporting 100+ cases")
 
 #Check if cases and deaths are different in different clusters (Ground Truth)
 cases_CA_h <- cases_CA %>% add_column(cluster = factor(clusterCut))
@@ -527,8 +530,8 @@ d <- dist(cases_CA_scaled_vac)
 fpc::cluster.stats(d, clusterCut)
 
 #Show average dissimilarities between clusters
-pimage(d, order=order(clusterCut), col = bluered(100))
-dissplot(d, labels = cutree(clusters1, k = 15), col = bluered(100))
+pimage(d, order=order(clusterCut), col = bluered(100), main = "Matrix Shading for Clusters (Vaccine)")
+dissplot(d, labels = cutree(clusters1, k = 9), col = bluered(100), main = "Dissimilarity Matrix Between Clusters (Vaccine)")
 
 #Graph the hierarchical clusters
 counties_CA_clust1 <- counties_CA %>% left_join(cases_CA %>% 
@@ -538,7 +541,7 @@ ggplot(counties_CA_clust1, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "Hierarchical Clusters Using Complete Linkage", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "Hierarchical Clusters Using Complete Linkage (Vaccine)", subtitle = "Only counties reporting 100+ cases")
 
 #Check if cases and deaths are different in different clusters (Ground Truth)
 cases_CA_h <- cases_CA %>% add_column(cluster = factor(clusterCut))
@@ -568,8 +571,8 @@ d <- dist(cases_CA_scaled_demo)
 fpc::cluster.stats(d, clusterCut)
 
 #Show average dissimilarities between clusters
-pimage(d, order=order(clusterCut), col = bluered(100))
-dissplot(d, labels = cutree(clusters1, k = 5), col = bluered(100))
+pimage(d, order=order(clusterCut), col = bluered(100), main = "Matrix Shading for Clusters (Demographic)")
+dissplot(d, labels = cutree(clusters1, k = 9), col = bluered(100), main = "Dissimilarity Matrix Between Clusters (Demographic)")
 
 #Graph the hierarchical clusters
 counties_CA_clust1 <- counties_CA %>% left_join(cases_CA %>% 
@@ -579,7 +582,7 @@ ggplot(counties_CA_clust1, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "Hierarchical Clusters Using Complete Linkage", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "Hierarchical Clusters Using Complete Linkage (Demographic)", subtitle = "Only counties reporting 100+ cases")
 
 #Check if cases and deaths are different in different clusters (Ground Truth)
 cases_CA_h <- cases_CA %>% add_column(cluster = factor(clusterCut))
@@ -614,7 +617,7 @@ fviz_cluster(list(data = cases_CA_scaled_edu, cluster = cutree(clusters1, k = 5)
              main='Cluster Plot - Hierarchical Using Ward\'s (Education-Related Variables)') +
   theme(axis.text.x = element_text(size = 15), title = element_text(size = 15))
 
-#Cut clusters off at 5
+#Cut clusters off at 4
 clusterCut <- cutree(clusters1, 4)
 
 #Look for internal validation 
@@ -633,7 +636,7 @@ ggplot(counties_CA_clust1, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "Hierarchical Clusters Using Complete Linkage", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "Hierarchical Clusters Using Complete Linkage (Education)", subtitle = "Only counties reporting 100+ cases")
 
 #Check if cases and deaths are different in different clusters (Ground Truth)
 cases_CA_h <- cases_CA %>% add_column(cluster = factor(clusterCut))
@@ -685,7 +688,7 @@ ggplot(counties_CA_clust1, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "Hierarchical Clusters Using Complete Linkage", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "Hierarchical Clusters Using Complete Linkage (Vaccine)", subtitle = "Only counties reporting 100+ cases")
 
 #Check if cases and deaths are different in different clusters (Ground Truth)
 cases_CA_h <- cases_CA %>% add_column(cluster = factor(clusterCut))
@@ -737,7 +740,7 @@ ggplot(counties_CA_clust1, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "Hierarchical Clusters Using Complete Linkage", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "Hierarchical Clusters Using Complete Linkage (Demographic)", subtitle = "Only counties reporting 100+ cases")
 
 #Check if cases and deaths are different in different clusters (Ground Truth)
 cases_CA_h <- cases_CA %>% add_column(cluster = factor(clusterCut))
