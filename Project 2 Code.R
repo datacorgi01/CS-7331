@@ -1,6 +1,8 @@
 #install.packages("fpc")
 #install.packages("dbscan")
 #install.packages("seriation")
+#install.packages("fossil")
+library(fossil)
 library(tidyverse)
 library(ggplot2)
 library(DT)
@@ -68,7 +70,7 @@ ca.raw4 <- ca.raw3[, -1]
 
 ggplot(tibble(index = seq_len(length(lof)), lof = sort(lof)), aes(index, lof)) +
   geom_line() +
-  geom_hline(yintercept = 2.4, color = "red", linetype = 2)
+  geom_hline(yintercept = 2.4, color = "red", linetype = 2) + ggtitle("Outlier Cutoff Using LOF") + xlab("Index") + ylab("LOF")
 
 ggplot(ca.raw4 %>% add_column(outlier = lof >= 2.4), aes(fully_vaccinated_per_1000, in_school_per_1000, color = outlier)) +
   geom_point()
@@ -290,11 +292,12 @@ fviz_cluster(km, data = cases_CA_scaled_vac, main='Cluster Plot - K-Means Using 
   theme(axis.text.x = element_text(size = 15), title = element_text(size = 15))
 
 #Look at profiles
-ggplot(pivot_longer(as_tibble(km$centers,  rownames = "cluster"), 
-                    cols = colnames(km$centers)), 
-       aes(y = name, x = value, fill = cluster)) +
-  geom_bar(stat = "identity") +
-  facet_grid(rows = vars(cluster))
+ggplot(pivot_longer(as_tibble(km$centers,  rownames = "cluster"), cols = colnames(km$centers)), 
+       aes(y = name, x = value, fill = cluster)) + geom_bar(stat = "identity") + facet_grid(rows = vars(cluster)) + 
+  labs(fill = "Cluster", x = "Value", y = "Variable Names") + 
+  ggtitle("Cluster Profiles for Vaccine-Related Variables") + 
+  theme(axis.title=element_text(size=18), plot.title = element_text(size=18), legend.title = element_text(size=18), 
+        legend.text = element_text(size=16), axis.text = element_text(size=13))
 
 #Look at clusters on a map - Vaccine
 counties <- as_tibble(map_data("county"))
@@ -313,14 +316,13 @@ ggplot(counties_CA_clust, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "K-Means Clusters with Euclidean Distance (Vaccinne-Related Variables)", subtitle = "Only counties reporting 100+ cases", 
+  labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases (Vaccine-Related Variables)", 
        fill = "Cluster", x = "Longitude", y = "Latitude") + 
   theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
         legend.title = element_text(size=22), legend.text = element_text(size=18), plot.title = element_text(size=22))
 
 #Look at measures of separation and measures of cohesion
 d <- dist(cases_CA_scaled_vac, method = "euclidean")
-km <- kmeans(d, centers = 4, nstart = 25)
 
 fpc::cluster.stats(d, km$cluster)
 
@@ -360,21 +362,23 @@ km
 #Look at silhouette coefficient
 fviz_nbclust(cases_CA_scaled_demo, kmeans, method='silhouette')
 
-fviz_cluster(km, data = cases_CA_scaled_demo)
+fviz_cluster(km, data = cases_CA_scaled_demo,  main='Cluster Plot - K-Means Using Euclidean Distance (Demographic-Related Variables)') +
+  theme(axis.text.x = element_text(size = 15), title = element_text(size = 15))
 
 #Look at profiles
-ggplot(pivot_longer(as_tibble(km$centers,  rownames = "cluster"), 
-                    cols = colnames(km$centers)), 
-       aes(y = name, x = value, fill = cluster)) +
-  geom_bar(stat = "identity") +
-  facet_grid(rows = vars(cluster))
+ggplot(pivot_longer(as_tibble(km$centers,  rownames = "cluster"), cols = colnames(km$centers)), 
+       aes(y = name, x = value, fill = cluster)) + geom_bar(stat = "identity") + facet_grid(rows = vars(cluster)) + 
+  labs(fill = "Cluster", x = "Value", y = "Variable Names") + 
+  ggtitle("Cluster Profiles for Demographic-Related Variables") + 
+  theme(axis.title=element_text(size=18), plot.title = element_text(size=18), legend.title = element_text(size=18), 
+        legend.text = element_text(size=16), axis.text = element_text(size=13))
 
 #Look at clusters on a map - Demographics
 counties <- as_tibble(map_data("county"))
 
 counties_CA <- counties %>% dplyr::filter(region == "california")  %>% dplyr::rename(c(county = subregion))
 
-ca.raw5 <- ca.raw3[-1,]
+ca.raw5 <- ca.raw3[-c(1,2,5),]
 
 cases_CA <- ca.raw5 %>% mutate(county = county %>% str_to_lower() %>% 
                                  str_replace('\\s+county\\s*$', ''))
@@ -386,11 +390,13 @@ ggplot(counties_CA_clust, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "K-Means Clusters with Euclidean Distance (Demographic-Related Variables)", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "K-Means Clusters with Euclidean Distance", subtitle = "Only counties reporting 100+ cases (Demographic-Related Variables)", 
+       fill = "Cluster", x = "Longitude", y = "Latitude") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        legend.title = element_text(size=22), legend.text = element_text(size=18), plot.title = element_text(size=22))
 
 #Look at measures of separation and measures of cohesion
 d <- dist(cases_CA_scaled_demo, method = "euclidean")
-km <- kmeans(d, centers = 4, nstart = 25)
 
 fpc::cluster.stats(d, km$cluster)
 
@@ -417,6 +423,28 @@ km1 <- kmeans(d1, centers = 4, nstart = 25)
 fviz_cluster(km1, data = cases_CA_scaled_edu,  main='Cluster Plot - K-Means Using Manhattan Distance (Education-Related Variables)') +
   theme(axis.text.x = element_text(size = 15), title = element_text(size = 15))
 
+#Look at clusters on a map - Education
+counties <- as_tibble(map_data("county"))
+
+counties_CA <- counties %>% dplyr::filter(region == "california")  %>% dplyr::rename(c(county = subregion))
+
+ca.raw5 <- ca.raw3[-c(1,2,5),]
+
+cases_CA <- ca.raw5 %>% mutate(county = county %>% str_to_lower() %>% 
+                                 str_replace('\\s+county\\s*$', ''))
+
+counties_CA_clust <- counties_CA %>% left_join(cases_CA %>% 
+                                                 add_column(cluster = factor(km1$cluster)))
+
+ggplot(counties_CA_clust, aes(long, lat)) + 
+  geom_polygon(aes(group = group, fill = cluster)) +
+  coord_quickmap() + 
+  scale_fill_viridis_d() + 
+  labs(title = "K-Means Clusters with Manhattan Distance", subtitle = "Only counties reporting 100+ cases (Education-Related Variables)", 
+       fill = "Clusters", x = "Longitude", y = "Latitude") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        legend.title = element_text(size=22), legend.text = element_text(size=18), plot.title = element_text(size=22))
+
 #Look at measures of separation and measures of cohesion
 fpc::cluster.stats(d1, km1$cluster)
 
@@ -437,6 +465,28 @@ km1 <- kmeans(d1, centers = 4, nstart = 25)
 fviz_cluster(km1, data = cases_CA_scaled_vac,  main='Cluster Plot - K-Means Using Manhattan Distance (Vaccine-Related Variables)') +
   theme(axis.text.x = element_text(size = 15), title = element_text(size = 15))
 
+#Look at clusters on a map - Education
+counties <- as_tibble(map_data("county"))
+
+counties_CA <- counties %>% dplyr::filter(region == "california")  %>% dplyr::rename(c(county = subregion))
+
+ca.raw5 <- ca.raw3[-c(1,2,5),]
+
+cases_CA <- ca.raw5 %>% mutate(county = county %>% str_to_lower() %>% 
+                                 str_replace('\\s+county\\s*$', ''))
+
+counties_CA_clust <- counties_CA %>% left_join(cases_CA %>% 
+                                                 add_column(cluster = factor(km1$cluster)))
+
+ggplot(counties_CA_clust, aes(long, lat)) + 
+  geom_polygon(aes(group = group, fill = cluster)) +
+  coord_quickmap() + 
+  scale_fill_viridis_d() + 
+  labs(title = "K-Means Clusters with Manhattan Distance", subtitle = "Only counties reporting 100+ cases (Vaccine-Related Variables)", 
+       fill = "Clusters", x = "Longitude", y = "Latitude") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        legend.title = element_text(size=22), legend.text = element_text(size=18), plot.title = element_text(size=22))
+
 #Look at measures of separation and measures of cohesion
 fpc::cluster.stats(d1, km1$cluster)
 
@@ -456,6 +506,28 @@ km1 <- kmeans(d1, centers = 4, nstart = 25)
 #Look at clusters
 fviz_cluster(km1, data = cases_CA_scaled_demo,  main='Cluster Plot - K-Means Using Manhattan Distance (Demographic-Related Variables)') +
   theme(axis.text.x = element_text(size = 15), title = element_text(size = 15))
+
+#Look at clusters on a map - Education
+counties <- as_tibble(map_data("county"))
+
+counties_CA <- counties %>% dplyr::filter(region == "california")  %>% dplyr::rename(c(county = subregion))
+
+ca.raw5 <- ca.raw3[-c(1,2,5),]
+
+cases_CA <- ca.raw5 %>% mutate(county = county %>% str_to_lower() %>% 
+                                 str_replace('\\s+county\\s*$', ''))
+
+counties_CA_clust <- counties_CA %>% left_join(cases_CA %>% 
+                                                 add_column(cluster = factor(km1$cluster)))
+
+ggplot(counties_CA_clust, aes(long, lat)) + 
+  geom_polygon(aes(group = group, fill = cluster)) +
+  coord_quickmap() + 
+  scale_fill_viridis_d() + 
+  labs(title = "K-Means Clusters with Manhattan Distance", subtitle = "Only counties reporting 100+ cases (Demographic-Related Variables)", 
+       fill = "Clusters", x = "Longitude", y = "Latitude") + 
+  theme(axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title=element_text(size=16), 
+        legend.title = element_text(size=22), legend.text = element_text(size=18), plot.title = element_text(size=22))
 
 #Look at measures of separation and measures of cohesion
 fpc::cluster.stats(d1, km1$cluster)
@@ -483,6 +555,8 @@ fviz_cluster(list(data = cases_CA_scaled_edu, cluster = cutree(clusters1, k = 9)
 
 #Cut clusters off at 5
 clusterCut <- cutree(clusters1, 9)
+
+fviz_dend(clusters1, k = 9, main = "Hierarchical Using Complete Linkage, K = 9 (Education-Related Variables)")
 
 #Look for internal validation 
 d <- dist(cases_CA_scaled_edu)
@@ -514,6 +588,8 @@ cases_CA_h %>% group_by(cluster) %>% summarize(
 #Hierarchical clustering - complete linkage used automatically - Vaccine
 clusters1 <- hclust(dist(cases_CA_scaled_vac))
 plot(clusters1)
+
+fviz_dend(clusters1, k = 15, main = "Hierarchical Using Complete Linkage, K = 15 (Vaccine-Related Variables)")
 
 gap.stat <- clusGap(cases_CA_scaled_vac, FUN = hcut, K.max = 15)
 fviz_gap_stat(gap.stat)
@@ -556,15 +632,18 @@ cases_CA_h %>% group_by(cluster) %>% summarize(
 clusters1 <- hclust(dist(cases_CA_scaled_demo))
 plot(clusters1)
 
+
+fviz_dend(clusters1, k = 14, main = "Hierarchical Using Complete Linkage, K = 14 (Demographic-Related Variables)")
+
 gap.stat <- clusGap(cases_CA_scaled_demo, FUN = hcut, K.max = 15)
 fviz_gap_stat(gap.stat)
 
-fviz_cluster(list(data = cases_CA_scaled_demo, cluster = cutree(clusters1, k = 5)), geom = "point", 
+fviz_cluster(list(data = cases_CA_scaled_demo, cluster = cutree(clusters1, k = 14)), geom = "point", 
              main='Cluster Plot - Hierarchical Using Complete Linkage (Demographic-Related Variables)') +
   theme(axis.text.x = element_text(size = 15), title = element_text(size = 15))
 
 #Cut clusters off at 5
-clusterCut <- cutree(clusters1, 5)
+clusterCut <- cutree(clusters1, 14)
 
 #Look for internal validation 
 d <- dist(cases_CA_scaled_demo)
@@ -572,7 +651,7 @@ fpc::cluster.stats(d, clusterCut)
 
 #Show average dissimilarities between clusters
 pimage(d, order=order(clusterCut), col = bluered(100), main = "Matrix Shading for Clusters (Demographic)")
-dissplot(d, labels = cutree(clusters1, k = 9), col = bluered(100), main = "Dissimilarity Matrix Between Clusters (Demographic)")
+dissplot(d, labels = cutree(clusters1, k = 14), col = bluered(100), main = "Dissimilarity Matrix Between Clusters (Demographic)")
 
 #Graph the hierarchical clusters
 counties_CA_clust1 <- counties_CA %>% left_join(cases_CA %>% 
@@ -618,7 +697,7 @@ fviz_cluster(list(data = cases_CA_scaled_edu, cluster = cutree(clusters1, k = 5)
   theme(axis.text.x = element_text(size = 15), title = element_text(size = 15))
 
 #Cut clusters off at 4
-clusterCut <- cutree(clusters1, 4)
+clusterCut <- cutree(clusters1, 5)
 
 #Look for internal validation 
 d <- dist(cases_CA_scaled_edu)
@@ -631,12 +710,12 @@ dissplot(d, labels = cutree(clusters1, k = 9), col = bluered(100))
 #Graph the hierarchical clusters
 counties_CA_clust1 <- counties_CA %>% left_join(cases_CA %>% 
                                                   add_column(cluster = factor(clusterCut)))
-#FIX BELOW GRAPH - CLUSTER 4 IS LEFT OUT
+
 ggplot(counties_CA_clust1, aes(long, lat)) + 
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "Hierarchical Clusters Using Complete Linkage (Education)", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "Hierarchical Clusters Using Ward's (Education)", subtitle = "Only counties reporting 100+ cases")
 
 #Check if cases and deaths are different in different clusters (Ground Truth)
 cases_CA_h <- cases_CA %>% add_column(cluster = factor(clusterCut))
@@ -688,7 +767,7 @@ ggplot(counties_CA_clust1, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "Hierarchical Clusters Using Complete Linkage (Vaccine)", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "Hierarchical Clusters Using Ward's (Vaccine)", subtitle = "Only counties reporting 100+ cases")
 
 #Check if cases and deaths are different in different clusters (Ground Truth)
 cases_CA_h <- cases_CA %>% add_column(cluster = factor(clusterCut))
@@ -717,12 +796,12 @@ plot(clusters1)
 gap.stat <- clusGap(cases_CA_scaled_demo, FUN = hcut, K.max = 15)
 fviz_gap_stat(gap.stat)
 
-fviz_cluster(list(data = cases_CA_scaled_demo, cluster = cutree(clusters1, k = 5)), geom = "point", 
+fviz_cluster(list(data = cases_CA_scaled_demo, cluster = cutree(clusters1, k = 7)), geom = "point", 
              main='Cluster Plot - Hierarchical Using Ward\'s (Demographic-Related Variables)') +
   theme(axis.text.x = element_text(size = 15), title = element_text(size = 15))
 
-#Cut clusters off at 5
-clusterCut <- cutree(clusters1, 5)
+#Cut clusters off at 7
+clusterCut <- cutree(clusters1, 7)
 
 #Look for internal validation 
 d <- dist(cases_CA_scaled_demo)
@@ -730,7 +809,7 @@ fpc::cluster.stats(d, clusterCut)
 
 #Show average dissimilarities between clusters
 pimage(d, order=order(clusterCut), col = bluered(100))
-dissplot(d, labels = cutree(clusters1, k = 5), col = bluered(100))
+dissplot(d, labels = cutree(clusters1, k = 7), col = bluered(100))
 
 #Graph the hierarchical clusters
 counties_CA_clust1 <- counties_CA %>% left_join(cases_CA %>% 
@@ -740,7 +819,7 @@ ggplot(counties_CA_clust1, aes(long, lat)) +
   geom_polygon(aes(group = group, fill = cluster)) +
   coord_quickmap() + 
   scale_fill_viridis_d() + 
-  labs(title = "Hierarchical Clusters Using Complete Linkage (Demographic)", subtitle = "Only counties reporting 100+ cases")
+  labs(title = "Hierarchical Clusters Using Ward's (Demographic)", subtitle = "Only counties reporting 100+ cases")
 
 #Check if cases and deaths are different in different clusters (Ground Truth)
 cases_CA_h <- cases_CA %>% add_column(cluster = factor(clusterCut))
@@ -753,7 +832,7 @@ cases_CA_h %>% group_by(cluster) %>% summarize(
 
 
 #Try out DBSCAN algorithm - Education
-kNNdistplot(cases_CA_scaled_edu, k = 5)
+kNNdistplot(cases_CA_scaled_edu, k = 5) + title("kNN Distance Plot For DBSCAN (Education Subset)")
 abline(h = 100, col = "red")
 
 db <- dbscan(cases_CA_scaled_edu, eps = 100, minPts = 4)
@@ -775,7 +854,7 @@ cases_CA_h %>% group_by(cluster) %>% summarize(
 
 
 #Try out DBSCAN algorithm - Vaccine
-kNNdistplot(cases_CA_scaled_vac, k = 5)
+kNNdistplot(cases_CA_scaled_vac, k = 5) + title("kNN Distance Plot For DBSCAN (Vaccine Subset)")
 abline(h = 300, col = "red")
 
 db <- dbscan(cases_CA_scaled_vac, eps = 300, minPts = 4)
@@ -797,10 +876,10 @@ cases_CA_h %>% group_by(cluster) %>% summarize(
 
 
 #Try out DBSCAN algorithm - Demographics
-kNNdistplot(cases_CA_scaled_demo, k = 5)
-abline(h = 125, col = "red")
+kNNdistplot(cases_CA_scaled_demo, k = 5) + title("kNN Distance Plot For DBSCAN (Demographic Subset)")
+abline(h = 150, col = "red")
 
-db <- dbscan(cases_CA_scaled_demo, eps = 125, minPts = 4)
+db <- dbscan(cases_CA_scaled_demo, eps = 150, minPts = 4)
 db
 
 fviz_cluster(db, data = cases_CA_scaled_demo, main='Cluster Plot - DBSCAN (Demographic-Related Variables)') +
@@ -824,9 +903,9 @@ cases_CA_h %>% group_by(cluster) %>% summarize(
 d <- dist(cases_CA_scaled_edu)
 
 gap.stat <- clusGap(cases_CA_scaled_edu, FUN = pam, K.max = 15)
-fviz_gap_stat(gap.stat)
+fviz_gap_stat(gap.stat) 
 
-p <- pam(d, k = 4)
+p <- pam(d, k = 7)
 
 ca_clustered <- cases_CA_scaled_edu %>% add_column(cluster = factor(p$cluster))
 
@@ -882,7 +961,7 @@ d <- dist(cases_CA_scaled_demo)
 gap.stat <- clusGap(cases_CA_scaled_demo, FUN = pam, K.max = 15)
 fviz_gap_stat(gap.stat)
 
-p <- pam(d, k = 5)
+p <- pam(d, k = 11)
 
 ca_clustered <- cases_CA_scaled_demo %>% add_column(cluster = factor(p$cluster))
 
@@ -903,4 +982,120 @@ cases_CA_h %>% group_by(cluster) %>% summarize(
   avg_cases = mean(cases_per_1000), 
   avg_deaths = mean(deaths_per_1000))
 
+
+
+#External Validation - K-means
+#Compute cluster stats (Education)
+ca.raw5 <- ca.raw3[-c(1,2,5),]
+cases1 <- as.numeric(ca.raw5$cases_per_1000)
+km <- kmeans(cases_CA_scaled_edu, centers = 4, nstart = 25)
+
+#Rand index
+rand.index(cases1, km$cluster)
+
+#Compute cluster stats (Vaccine)
+ca.raw5 <- ca.raw3[-c(1,2,5),]
+cases1 <- as.numeric(ca.raw5$cases_per_1000)
+km <- kmeans(cases_CA_scaled_vac, centers = 4, nstart = 25)
+
+#Rand index
+rand.index(cases1, km$cluster)
+
+#Compute cluster stats (Demographic)
+ca.raw5 <- ca.raw3[-c(1,2,5),]
+cases1 <- as.numeric(ca.raw5$cases_per_1000)
+km <- kmeans(cases_CA_scaled_demo, centers = 4, nstart = 25)
+
+#Rand index
+rand.index(cases1, km$cluster)
+
+#Education - Manhattan K-means
+d1 <- dist(cases_CA_scaled_edu, method = "manhattan")
+km1 <- kmeans(d1, centers = 4, nstart = 25)
+#Rand index
+rand.index(cases1, km1$cluster)
+
+#Vaccine - Manhattan K-means
+d1 <- dist(cases_CA_scaled_vac, method = "manhattan")
+km1 <- kmeans(d1, centers = 4, nstart = 25)
+#Rand index
+rand.index(cases1, km1$cluster)
+
+#Demographic - Manhattan K-means
+d1 <- dist(cases_CA_scaled_demo, method = "manhattan")
+km1 <- kmeans(d1, centers = 4, nstart = 25)
+#Rand index
+rand.index(cases1, km1$cluster)
+
+
+
+#Hierarchical clustering - complete linkage used automatically - Education
+clusters1 <- hclust(dist(cases_CA_scaled_edu))
+clusterCut <- cutree(clusters1, 9)
+rand.index(cases1, clusterCut)
+
+#Hierarchical clustering - complete linkage used automatically - Vaccine
+clusters1 <- hclust(dist(cases_CA_scaled_vac))
+clusterCut <- cutree(clusters1, 15)
+rand.index(cases1, clusterCut)
+
+#Hierarchical clustering - complete linkage used automatically - Demographic
+clusters1 <- hclust(dist(cases_CA_scaled_demo))
+clusterCut <- cutree(clusters1, 14)
+rand.index(cases1, clusterCut)
+
+
+
+#Hierarchical clustering - Wards - Education
+clusters1 <- hclust(dist(cases_CA_scaled_edu), method="ward.D")
+clusterCut <- cutree(clusters1, 5)
+rand.index(cases1, clusterCut)
+
+#Hierarchical clustering - Wards - Vaccine
+clusters1 <- hclust(dist(cases_CA_scaled_vac), method="ward.D")
+clusterCut <- cutree(clusters1, 5)
+rand.index(cases1, clusterCut)
+
+#Hierarchical clustering - Wards - Demographic
+clusters1 <- hclust(dist(cases_CA_scaled_demo), method="ward.D")
+clusterCut <- cutree(clusters1, 7)
+rand.index(cases1, clusterCut)
+
+
+
+#DBSCAN - Education
+db <- dbscan(cases_CA_scaled_edu, eps = 100, minPts = 4)
+rand.index(cases1, db$cluster)
+
+#DBSCAN - Vaccine
+db <- dbscan(cases_CA_scaled_vac, eps = 300, minPts = 4)
+rand.index(cases1, db$cluster)
+
+#DBSCAN - Demographic
+db <- dbscan(cases_CA_scaled_demo, eps = 150, minPts = 4)
+rand.index(cases1, db$cluster)
+
+
+
+
+
+#PAM clustering - Education
+d <- dist(cases_CA_scaled_edu)
+p <- pam(d, k = 7)
+#Rand index
+rand.index(cases1, p$clustering)
+
+
+#PAM clustering - Vaccine
+d <- dist(cases_CA_scaled_vac)
+p <- pam(d, k = 7)
+#Rand index
+rand.index(cases1, p$clustering)
+
+
+#PAM clustering - Demographics
+d <- dist(cases_CA_scaled_demo)
+p <- pam(d, k = 11)
+#Rand index
+rand.index(cases1, p$clustering)
 
